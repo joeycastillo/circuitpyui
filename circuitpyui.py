@@ -1,4 +1,5 @@
 import displayio
+from adafruit_display_text import label
 from micropython import const
 import adafruit_button
 
@@ -30,7 +31,6 @@ class Responder(displayio.Group):
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
     :param max_size: Maximum number of groups that will be added.
-    :param next_responder: The responder responsible for handling events that this responder does not.
     """
     def __init__(
         self,
@@ -96,7 +96,7 @@ class Responder(displayio.Group):
             except AttributeError:
                 continue # plain displayio groups can live in the view hierarchy, but they don't participate in responder chains.
         if self.contains(x, y):
-            self.handle_event(Event(Event.TOUCH_BEGAN, {"x": x, "y": y}))
+            self.handle_event(Event(Event.TOUCH_BEGAN, {"x": x, "y": y, "originator" : self}))
             return self
         return None
 
@@ -109,7 +109,6 @@ class Window(Responder):
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
     :param max_size: Maximum number of groups that will be added.
-    :param next_responder: The responder responsible for handling events that this responder does not.
     """
     def __init__(
         self,
@@ -183,5 +182,132 @@ class Button(Responder):
     def handle_event(self, event):
         if event.event_type == TOUCH_BEGAN:
             self.button.selected = True
+            return True
+        return super().handle_event(event)
+
+class Cell(Responder):
+    """A ``Cell`` is a specialized responder intended for use with a table or grid view. Comes with one label.
+    You should not add additional groups to a cell; it has a max_size of 1. Eventually hope to add additional
+    styles that support more labels or accessory views.
+    :param font: The font for the label.
+    :param x: The x position of the view.
+    :param y: The y position of the view.
+    :param width: The width of the view in pixels.
+    :param height: The height of the view in pixels.
+    :param max_glyphs: Maximum number of glypghs in the label.
+    :param text: Text for the label.
+    """
+    def __init__(
+        self,
+        font,
+        *,
+        x=0,
+        y=0,
+        width=0,
+        height=0,
+        max_glyphs=32,
+        text="",
+    ):
+        super().__init__(x=x, y=y, width=width, height=height, max_size=1)
+        self.label = label.Label(font, x=0, y=self.height // 2, max_glyphs=max_glyphs, text=text)
+        self.append(self.label)
+
+class Table(Responder):
+    """A ``Table`` manages a group of ``Cell``s, displaying as many as will fit in the view's display area. 
+    If there is more than one screen's worth of content, an on-screen previous/next page button can be added 
+    (for touchscreen interfaces) or the table can respond to previous/next events (button-based interface).
+    :param font: The font for the cells.
+    :param x: The x position of the view.
+    :param y: The y position of the view.
+    :param width: The width of the view in pixels.
+    :param height: The height of the view in pixels.
+    :param cell_height: The height of each row in the table.
+    :param show_navigation_buttons: True to show previous/next buttons on screen. Useful for touch interfaces,
+                                    or if the device does not have dedicated physical buttons for previous/next.
+    """
+    def __init__(
+        self,
+        font,
+        *,
+        x=0,
+        y=0,
+        width=0,
+        height=0,
+        cell_height=32,
+        show_navigation_buttons=False,
+    ):
+        max_cells = height // cell_height
+        super().__init__(x=x, y=y, width=width, height=height, max_size=max_cells + (1 if show_navigation_buttons else 0))
+        self.cell_height = cell_height
+        self.font = font
+        self.show_navigation_buttons = show_navigation_buttons
+        self._items = []
+        self._add_buttons = False
+        self._start_offset = 0
+        self._cells_per_page = max_cells
+
+    @property
+    def items(self):
+        return self._items
+
+    @items.setter
+    def items(self, items):
+        self._items = items
+        max_cells = self.height // self.cell_height
+        num_cells = min(len(self._items), max_cells)
+        if len(self._items) > num_cells and self.show_navigation_buttons:
+            num_cells -= 1 # last row reserved for prev/next
+            self._add_buttons = True
+        else:
+            self._add_buttons = False
+        self._cells_per_page = num_cells
+        self.update_cells()
+
+    def update_cells(self):
+        for i in range(len(self)-1, -1, -1):
+            self.remove_subview(self[i])
+        
+        end = self._start_offset + self._cells_per_page
+        if end > len(self._items):
+            end = len(self._items)
+        for i in range(0, end - self._start_offset):
+            cell = Cell(self.font, x=0, y=i * self.cell_height, width=self.width, height=self.cell_height, max_glyphs=50) # todo: set max glypyhs properly
+            cell.label.text = self._items[self._start_offset + i]
+            self.add_subview(cell)
+        if self._add_buttons:
+            for i in range(0, 2):
+                cell = Cell(self.font, x=i * self.width // 2, y=self._cells_per_page * self.cell_height, width=self.width // 2, height=self.cell_height, text="Previous" if i is 0 else "Next")
+                self.add_subview(cell)
+    
+    def previous_page(self):
+        if self._start_offset > 0:
+            self._start_offset -= self._cells_per_page
+            self.update_cells()
+
+    def next_page(self):
+        if self._start_offset + self._cells_per_page < len(self.items):
+            self._start_offset += self._cells_per_page
+            self.update_cells()
+    
+    def handle_event(self, event):
+        if event.event_type == Event.TOUCH_BEGAN:
+            originator = event.user_info["originator"]
+            try:
+                cell_index = self.index(originator)
+            except ValueError:
+                return False # we could not handle this event, do not forward
+            if self.show_navigation_buttons:
+                if cell_index == len(self) - 1:
+                    self.next_page()
+                    return True
+                elif cell_index == len(self) - 2:
+                    self.previous_page()
+                    return True
+            selected_index = self._start_offset + cell_index
+        elif event.event_type == Event.BUTTON_PREV:
+            self.previous_page()
+            return True
+        elif event.event_type == Event.BUTTON_NEXT:
+            self.next_page()
             return True
         return super().handle_event(event)
