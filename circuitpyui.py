@@ -65,9 +65,11 @@ class Responder(displayio.Group):
 
     def handle_touch(self, touched, x, y):
         """When using a touch UI, call this method repeatedly to handle any touch events coming in.
+        If the user touched a responder, it will emit a TOUCH_BEGAN event that can propagate through the responder chain.
         Subclasses should not need to override this method.
         :param touched: a boolean indicating whether there is a finger on the display.
-        :param touches: a list of touches. Each should have an x and y value.
+        :param x: the x coordinate of the touch
+        :param y: the y coordinate of the touch
         :return: the topmost view that was touched, or None if the touch fell outside of any view."""
         if not touched:
             return None # eventually maybe use this to inform touch up events?
