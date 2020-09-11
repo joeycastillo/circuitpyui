@@ -22,8 +22,8 @@ class Event():
 
 class Responder(displayio.Group):
     """Base class for ``circuitpyui`` classes. Has a position and a size.
-    When initializing this class, pass in the parent responder -- usually the group you are adding the responder to -- 
-    as next_responder. When an event is generated, the originating responder will have a chance to handle the event. 
+    When initializing this class, pass in the parent responder -- usually the group you are adding the responder to --
+    as next_responder. When an event is generated, the originating responder will have a chance to handle the event.
     If it does not, the event should pass to the next_responder.
     :param x: The x position of the view.
     :param y: The y position of the view.
@@ -49,11 +49,11 @@ class Responder(displayio.Group):
         self.height = height
         self.next_responder = next_responder
 
-    def contains(self, point):
+    def contains(self, x, y):
         """Used to determine if a point is contained within this responder, mostly for touch UI.
         :param point: a tuple with the x and y value.
         :return: True if the point was inside this view, False if not."""
-        return (self.x <= point[0] <= self.x + self.width) and (self.y <= point[1] <= self.y + self.height)
+        return (self.x <= x <= self.x + self.width) and (self.y <= y <= self.y + self.height)
 
     def handle_event(self, event):
         """Subclasses should override this to handle Events that are relevant to them.
@@ -63,32 +63,31 @@ class Responder(displayio.Group):
             return self.next_responder.handle_event(event)
         return False
 
-    def handle_touches(self, touched, touches):
+    def handle_touch(self, touched, x, y):
         """When using a touch UI, call this method repeatedly to handle any touch events coming in.
         Subclasses should not need to override this method.
         :param touched: a boolean indicating whether there is a finger on the display.
         :param touches: a list of touches. Each should have an x and y value.
         :return: the topmost view that was touched, or None if the touch fell outside of any view."""
-        if not touched or not touches:
+        if not touched:
             return None # eventually maybe use this to inform touch up events?
-        touch = (touches[0]["x"], touches[0]["y"])
-        if not self.contains(touch):
+        if not self.contains(x, y):
             return None
         for subview in reversed(self): # process frontmost layers first
             try:
-                retval = subview.handle_touches(touched, touches)
+                retval = subview.handle_touch(touched, x - self.x, y - self.y)
                 if retval is not None:
                     return retval
             except AttributeError:
                 continue # plain displayio groups can live in the view hierarchy, but they don't participate in responder chains.
-        if self.contains(touch):
-            self.handle_event(Event(Event.TOUCH_BEGAN, touch))
+        if self.contains(x, y):
+            self.handle_event(Event(Event.TOUCH_BEGAN, {"x": x, "y": y}))
             return self
         return None
 
 class Window(Responder):
     """A window is the topmost view in a chain of responders. All responders should live in a tree under the window.
-    In a touch environment, the window defers to Responder's ``handle_touches`` method to forward a touch to the correct responder.
+    In a touch environment, the window defers to Responder's ``handle_touch`` method to forward a touch to the correct responder.
     In a cursor-based environment, the window can handle pushbutton events to move focus between responders.
     :param x: The x position of the view.
     :param y: The y position of the view.
