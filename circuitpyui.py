@@ -14,12 +14,52 @@ class Event():
     BUTTON_NEXT = const(106)
     BUTTON_LOCK = const(107)
 
-    def __init__(
-        self,
-        event_type,
-        user_info):
-            self.event_type = event_type
-            self.user_info = user_info
+    def __init__(self, event_type, user_info):
+        self.event_type = event_type
+        self.user_info = user_info
+
+class Task():
+    def __init__(self):
+        pass
+
+    def run(self, runloop):
+        return True
+
+class RunLoop():
+    """Runs a set of tasks in a loop. Each task should have one method, ``run``, that will perform whatever actions the task
+    needs to do to serve its purpose. The run loop will run indefinitely as long as your task's ``run`` method returns True; 
+    return False to exit the RunLoop. Tasks run in the order added, so it would make sense to add your input tasks 
+    (i.e. collect touches and button presses) before your output tasks (refresh the screen, etc).
+    :param window: The window associated with the run loop."""
+    def __init__(self, window):
+        self.window = window
+        self.tasks = []
+        
+    def add_task(self, task):
+        """Adds a task to the run loop.
+        :param task: The task to add."""
+        self.tasks.append(task)
+
+    def remove_task(self, task):
+        """Removes a task from the run loop.
+        :param task: The task to remove."""
+        self.tasks.remove(task)
+        
+    def run(self):
+        """Repeatedly runs all tasks in the run loop. Will run until a task returns False.
+        """
+        while True:
+            for task in self.tasks:
+                if not task.run(self):
+                    return
+    
+    def generate_event(self, event_type, user_info = None):
+        """Generates an event. Tasks can call this method to create events from external inputs; for example, if the user pressed the 
+        "Select" button, you could generate a BUTTON_SELECT event in your button task. The window's active responder gets first crack 
+        at handling the event. If the active responder cannot handle the event, it will bubble up the responder chain.
+        :param event_type: The type of event to generate.
+        :param user_info: An optional dictionary with additional information about the event."""
+        self.window.active_responder.handle_event(Event(event_type, user_info))
 
 class Responder(displayio.Group):
     """Base class for ``circuitpyui`` classes. Has a position and a size.
@@ -47,24 +87,36 @@ class Responder(displayio.Group):
         self.width = width
         self.height = height
         self.next_responder = None
+        self.window = None
 
     def add_subview(self, view):
         """Adds a Responder to the view hierarchy. Only for ``Responder``s and their subclasses;
         if you are adding a plain displayio ``Group``, use append() instead.
         :param view: The view to add to the hierarchy."""
         view.next_responder = self
+        view.window = self if self.__class__ is Window else self.window
         self.append(view)
+        if self.window is not None:
+            self.window.set_needs_display(True)
     
     def remove_subview(self, view):
         """Removes a Responder from the view hierarchy. Only for ``Responder``s and their subclasses;
         if you are removing a plain displayio ``Group``, use remove() instead.
         :param view: The view to remove from the hierarchy."""
         view.next_responder = None
+        view.window = None
         self.remove(view)
+        if self.window is not None:
+            self.window.set_needs_display(True)
 
-    def contains(self, x, y):
-        """Used to determine if a point is contained within this responder, mostly for touch UI.
-        :param point: a tuple with the x and y value.
+    def become_active(self):
+        """Causes this view to become the active responder in the window."""
+        self.window.active_responder = self
+
+    def _contains(self, x, y):
+        """Internal method to to determine if a point is contained within this responder, mostly for touch UI.
+        :param x: the x value to test.
+        :param y: the y value to test.
         :return: True if the point was inside this view, False if not."""
         return (self.x <= x <= self.x + self.width) and (self.y <= y <= self.y + self.height)
 
@@ -86,7 +138,7 @@ class Responder(displayio.Group):
         :return: the topmost view that was touched, or None if the touch fell outside of any view."""
         if not touched:
             return None # eventually maybe use this to inform touch up events?
-        if not self.contains(x, y):
+        if not self._contains(x, y):
             return None
         for subview in reversed(self): # process frontmost layers first
             try:
@@ -95,7 +147,7 @@ class Responder(displayio.Group):
                     return retval
             except AttributeError:
                 continue # plain displayio groups can live in the view hierarchy, but they don't participate in responder chains.
-        if self.contains(x, y):
+        if self._contains(x, y):
             self.handle_event(Event(Event.TOUCH_BEGAN, {"x": x, "y": y, "originator" : self}))
             return self
         return None
@@ -125,7 +177,8 @@ class Window(Responder):
         self.width = width
         self.height = height
         self.next_responder = None
-        self.active_responder = None
+        self.active_responder = self
+        self.dirty = False
 
     def handle_event(self, event):
         """By default, ``Window`` consumes direction pad events and the Select button, but no touches."""
@@ -143,9 +196,15 @@ class Window(Responder):
             return True
         if event.event_type is Event.BUTTON_SELECT and self.active_responder is not None:
             # hacky, this should not be a touch. this is just a placeholder til i think through the event system
-            self.active_responder.handle_event(Event(Event.TOUCH_BEGAN, None))
+            self.active_responder.handle_event(Event(Event.TOUCH_BEGAN, {"originator" : self.active_responder}))
             return True
         return super().handle_event(event)
+
+    def needs_display(self):
+        return self.dirty
+        
+    def set_needs_display(self, needs_display):
+        self.dirty = needs_display
 
 class Button(Responder):
     """Temporary class, just wraps an adafruit_button for testing."""
@@ -277,7 +336,9 @@ class Table(Responder):
             for i in range(0, 2):
                 cell = Cell(self.font, x=i * self.width // 2, y=self._cells_per_page * self.cell_height, width=self.width // 2, height=self.cell_height, text="Previous" if i is 0 else "Next")
                 self.add_subview(cell)
-    
+        if self[0] is not None:
+            self[0].become_active()
+
     def previous_page(self):
         if self._start_offset > 0:
             self._start_offset -= self._cells_per_page
@@ -295,7 +356,7 @@ class Table(Responder):
                 cell_index = self.index(originator)
             except ValueError:
                 return False # we could not handle this event, do not forward
-            if self.show_navigation_buttons:
+            if self._add_buttons:
                 if cell_index == len(self) - 1:
                     self.next_page()
                     return True
@@ -309,4 +370,23 @@ class Table(Responder):
         elif event.event_type == Event.BUTTON_NEXT:
             self.next_page()
             return True
+        elif event.event_type in [Event.BUTTON_DOWN, Event.BUTTON_UP, Event.BUTTON_LEFT, Event.BUTTON_RIGHT]:
+            try:
+                cell_index = self.index(self.window.active_responder)
+            except ValueError:
+                return False
+            if self._add_buttons:
+                # special case for navigation buttons, we should be able to move left and right between them
+                if event.event_type == Event.BUTTON_LEFT and cell_index == len(self) - 1:
+                    self[len(self) - 2].become_active()
+                    return True
+                elif event.event_type == Event.BUTTON_RIGHT and cell_index == len(self) - 2:
+                    self[len(self) - 1].become_active()
+                    return True
+            if event.event_type == Event.BUTTON_UP and cell_index > 0:
+                self[cell_index - 1].become_active()
+                return True
+            elif event.event_type == Event.BUTTON_DOWN and cell_index < len(self) - 1:
+                self[cell_index + 1].become_active()
+                return True
         return super().handle_event(event)
