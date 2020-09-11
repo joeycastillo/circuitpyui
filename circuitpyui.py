@@ -40,14 +40,27 @@ class Responder(displayio.Group):
         width=0,
         height=0,
         max_size=5,
-        next_responder=None
     ):
         super().__init__(x=x, y=y, max_size=max_size)
         self.x = x
         self.y = y
         self.width = width
         self.height = height
-        self.next_responder = next_responder
+        self.next_responder = None
+
+    def add_subview(self, view):
+        """Adds a Responder to the view hierarchy. Only for ``Responder``s and their subclasses;
+        if you are adding a plain displayio ``Group``, use append() instead.
+        :param view: The view to add to the hierarchy."""
+        view.next_responder = self
+        self.append(view)
+    
+    def remove_subview(self, view):
+        """Removes a Responder from the view hierarchy. Only for ``Responder``s and their subclasses;
+        if you are removing a plain displayio ``Group``, use remove() instead.
+        :param view: The view to remove from the hierarchy."""
+        view.next_responder = None
+        self.remove(view)
 
     def contains(self, x, y):
         """Used to determine if a point is contained within this responder, mostly for touch UI.
@@ -106,14 +119,13 @@ class Window(Responder):
         width=0,
         height=0,
         max_size=5,
-        next_responder=None
     ):
-        super().__init__(x=x, y=y, width=width, height=height, max_size=max_size, next_responder=next_responder)
+        super().__init__(x=x, y=y, width=width, height=height, max_size=max_size)
         self.x = x
         self.y = y
         self.width = width
         self.height = height
-        self.next_responder = next_responder
+        self.next_responder = None
         self.active_responder = None
 
     def handle_event(self, event):
@@ -146,16 +158,15 @@ class Button(Responder):
         width=0,
         height=0,
         max_size=5,
-        next_responder=None,
         label=None,
         font=None
     ):
-        super().__init__(x=x, y=y, width=width, height=height, max_size=max_size, next_responder=next_responder)
+        super().__init__(x=x, y=y, width=width, height=height, max_size=max_size)
         self.x = x
         self.y = y
         self.width = width
         self.height = height
-        self.next_responder = next_responder
+        self.next_responder = None
         self.button = adafruit_button.Button(x=0, y=0,
                                              width=width,
                                              height=height,
@@ -168,6 +179,7 @@ class Button(Responder):
                                              selected_outline=0x000000,
                                              selected_label=0x000000)
         self.append(self.button)
+
     def handle_event(self, event):
         if event.event_type == TOUCH_BEGAN:
             self.button.selected = True
