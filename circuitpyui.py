@@ -23,14 +23,14 @@ class Event():
 
 class Responder(displayio.Group):
     """Base class for ``circuitpyui`` classes. Has a position and a size.
-    When initializing this class, pass in the parent responder -- usually the group you are adding the responder to --
-    as next_responder. When an event is generated, the originating responder will have a chance to handle the event.
+    When you add a responder to another responder using ``add_subview``, it will join a chain of responders that can handle
+    and pass along ``Event``s. When an event is generated, the originating responder will have a chance to handle it.
     If it does not, the event should pass to the next_responder.
     :param x: The x position of the view.
     :param y: The y position of the view.
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
-    :param max_size: Maximum number of groups that will be added.
+    :param max_size: Maximum number of groups and responders that will be added.
     """
     def __init__(
         self,
