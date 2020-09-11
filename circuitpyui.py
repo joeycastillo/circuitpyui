@@ -194,7 +194,7 @@ class Cell(Responder):
     :param y: The y position of the view.
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
-    :param max_glyphs: Maximum number of glypghs in the label.
+    :param max_glyphs: Maximum number of glyphs in the label. Optional if ``text`` is provided.
     :param text: Text for the label.
     """
     def __init__(
@@ -205,7 +205,7 @@ class Cell(Responder):
         y=0,
         width=0,
         height=0,
-        max_glyphs=32,
+        max_glyphs=None,
         text="",
     ):
         super().__init__(x=x, y=y, width=width, height=height, max_size=1)
@@ -271,8 +271,7 @@ class Table(Responder):
         if end > len(self._items):
             end = len(self._items)
         for i in range(0, end - self._start_offset):
-            cell = Cell(self.font, x=0, y=i * self.cell_height, width=self.width, height=self.cell_height, max_glyphs=50) # todo: set max glypyhs properly
-            cell.label.text = self._items[self._start_offset + i]
+            cell = Cell(self.font, x=0, y=i * self.cell_height, width=self.width, height=self.cell_height, text=self._items[self._start_offset + i])
             self.add_subview(cell)
         if self._add_buttons:
             for i in range(0, 2):
