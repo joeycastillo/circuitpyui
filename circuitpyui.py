@@ -24,13 +24,13 @@ class Task():
         pass
 
     def run(self, runloop):
-        return True
+        pass
 
 class RunLoop():
     """Runs a set of tasks in a loop. Each task should have one method, ``run``, that will perform whatever actions the task
-    needs to do to serve its purpose. The run loop will run indefinitely as long as your task's ``run`` method returns True;
-    return False to exit the RunLoop. Tasks run in the order added, so it would make sense to add your input tasks
-    (i.e. collect touches and button presses) before your output tasks (refresh the screen, etc).
+    needs to do to serve its purpose. The run loop will run until a Task's ``run`` method returns True. Tasks run in the order
+    added, so it would make sense to add your input tasks (i.e. collect touches and button presses) before your output tasks
+    (refresh the screen, etc).
     :param window: The window associated with the run loop."""
     def __init__(self, window):
         self.window = window
@@ -51,7 +51,7 @@ class RunLoop():
         """
         while True:
             for task in self.tasks:
-                if not task.run(self):
+                if task.run(self):
                     return
 
     def generate_event(self, event_type, user_info = None):
