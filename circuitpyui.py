@@ -140,7 +140,7 @@ class Responder(displayio.Group):
         :return: True if the event was handled, False if not."""
         if event.event_type == Event.TOUCH_BEGAN or event.event_type is Event.BUTTON_SELECT:
             self.handle_event(Event(Event.TAPPED, {"originator" : self}))
-        if event.event_type in self.actions:
+        if self.actions is not None and event.event_type in self.actions:
             self.actions[event.event_type](event)
             return True
         elif self.next_responder is not None:
@@ -185,7 +185,7 @@ class Responder(displayio.Group):
     def remove_action(self, event_type):
         """Removes an action for a given event type.
         :param event_type: The type of event whose action you are removing."""
-        if event_type in self.actions:
+        if self.actions is not None and event_type in self.actions:
             del self.actions[event_type]
         if not len(self.actions):
             self.actions = None
