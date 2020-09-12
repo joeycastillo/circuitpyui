@@ -4,7 +4,8 @@ from micropython import const
 import adafruit_button
 
 class Event():
-    TOUCH_BEGAN = const(1)
+    TAPPED = const(1)
+    TOUCH_BEGAN = const(10)
     BUTTON_LEFT = const(100)
     BUTTON_DOWN = const(101)
     BUTTON_UP = const(102)
@@ -88,6 +89,7 @@ class Responder(displayio.Group):
         self.height = height
         self.next_responder = None
         self.window = None
+        self.actions = None
 
     def add_subview(self, view):
         """Adds a Responder to the view hierarchy. Only for ``Responder``s and their subclasses;
@@ -136,7 +138,12 @@ class Responder(displayio.Group):
         """Subclasses should override this to handle Events that are relevant to them.
         :param event: an Event class with a required event_type and an optional user_info dictionary.
         :return: True if the event was handled, False if not."""
-        if self.next_responder is not None:
+        if event.event_type == Event.TOUCH_BEGAN or event.event_type is Event.BUTTON_SELECT:
+            self.handle_event(Event(Event.TAPPED, {"originator" : self}))
+        if event.event_type in self.actions:
+            self.actions[event.event_type](event)
+            return True
+        elif self.next_responder is not None:
             return self.next_responder.handle_event(event)
         return False
 
@@ -163,6 +170,25 @@ class Responder(displayio.Group):
             self.handle_event(Event(Event.TOUCH_BEGAN, {"x": x, "y": y, "originator" : self}))
             return self
         return None
+
+    def set_action(self, action, event_type):
+        """Adds an action that can be performed when a given event type occurs. An action should be a function taking exactly
+        one parameter, the Event that triggered the action. For example, say you are implementing a Pause button. You would call
+        ``pause_button.add_action(pause, Event.TAPPED)``, and now your ``pause`` function will be called whenever the user taps
+        the button. Only one action can be set for a given event type; if you attempt to set an action
+        :param action: The function to call when a matching event takes place.
+        :param event_type: The type of event that will trigger this action."""
+        if self.actions is None:
+            self.actions = {}
+        self.actions[event_type] = action
+
+    def remove_action(self, event_type):
+        """Removes an action for a given event type.
+        :param event_type: The type of event whose action you are removing."""
+        if event_type in self.actions:
+            del self.actions[event_type]
+        if not len(self.actions):
+            self.actions = None
 
 class Window(Responder):
     """A window is the topmost view in a chain of responders. All responders should live in a tree under the window.
@@ -205,10 +231,6 @@ class Window(Responder):
             return True
         if event.event_type is Event.BUTTON_DOWN:
             # TODO: Move focus down
-            return True
-        if event.event_type is Event.BUTTON_SELECT and self.active_responder is not None:
-            # hacky, this should not be a touch. this is just a placeholder til i think through the event system
-            self.active_responder.handle_event(Event(Event.TOUCH_BEGAN, {"originator" : self.active_responder}))
             return True
         return super().handle_event(event)
 
@@ -406,7 +428,7 @@ class Table(Responder):
             self.update_cells()
 
     def handle_event(self, event):
-        if event.event_type == Event.TOUCH_BEGAN:
+        if event.event_type == Event.TAPPED:
             originator = event.user_info["originator"]
             try:
                 cell_index = self.index(originator)
@@ -420,6 +442,8 @@ class Table(Responder):
                     self.previous_page()
                     return True
             selected_index = self._start_offset + cell_index
+            event.user_info["index"] = selected_index
+            # do not return True; let the event bubble up with the extra context of the selected row
         elif event.event_type == Event.BUTTON_PREV:
             self.previous_page()
             return True
