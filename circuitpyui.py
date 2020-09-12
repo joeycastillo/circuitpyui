@@ -27,14 +27,14 @@ class Task():
 
 class RunLoop():
     """Runs a set of tasks in a loop. Each task should have one method, ``run``, that will perform whatever actions the task
-    needs to do to serve its purpose. The run loop will run indefinitely as long as your task's ``run`` method returns True; 
-    return False to exit the RunLoop. Tasks run in the order added, so it would make sense to add your input tasks 
+    needs to do to serve its purpose. The run loop will run indefinitely as long as your task's ``run`` method returns True;
+    return False to exit the RunLoop. Tasks run in the order added, so it would make sense to add your input tasks
     (i.e. collect touches and button presses) before your output tasks (refresh the screen, etc).
     :param window: The window associated with the run loop."""
     def __init__(self, window):
         self.window = window
         self.tasks = []
-        
+
     def add_task(self, task):
         """Adds a task to the run loop.
         :param task: The task to add."""
@@ -44,7 +44,7 @@ class RunLoop():
         """Removes a task from the run loop.
         :param task: The task to remove."""
         self.tasks.remove(task)
-        
+
     def run(self):
         """Repeatedly runs all tasks in the run loop. Will run until a task returns False.
         """
@@ -52,10 +52,10 @@ class RunLoop():
             for task in self.tasks:
                 if not task.run(self):
                     return
-    
+
     def generate_event(self, event_type, user_info = None):
-        """Generates an event. Tasks can call this method to create events from external inputs; for example, if the user pressed the 
-        "Select" button, you could generate a BUTTON_SELECT event in your button task. The window's active responder gets first crack 
+        """Generates an event. Tasks can call this method to create events from external inputs; for example, if the user pressed the
+        "Select" button, you could generate a BUTTON_SELECT event in your button task. The window's active responder gets first crack
         at handling the event. If the active responder cannot handle the event, it will bubble up the responder chain.
         :param event_type: The type of event to generate.
         :param user_info: An optional dictionary with additional information about the event."""
@@ -98,7 +98,7 @@ class Responder(displayio.Group):
         self.append(view)
         if self.window is not None:
             self.window.set_needs_display()
-    
+
     def remove_subview(self, view):
         """Removes a Responder from the view hierarchy. Only for ``Responder``s and their subclasses;
         if you are removing a plain displayio ``Group``, use remove() instead.
@@ -214,7 +214,7 @@ class Window(Responder):
 
     def needs_display(self):
         return self.dirty
-        
+
     def set_needs_display(self, needs_display = True):
         self.dirty = needs_display
 
@@ -319,8 +319,8 @@ class Cell(Responder):
         self.window.set_needs_display()
 
 class Table(Responder):
-    """A ``Table`` manages a group of ``Cell``s, displaying as many as will fit in the view's display area. 
-    If there is more than one screen's worth of content, an on-screen previous/next page button can be added 
+    """A ``Table`` manages a group of ``Cell``s, displaying as many as will fit in the view's display area.
+    If there is more than one screen's worth of content, an on-screen previous/next page button can be added
     (for touchscreen interfaces) or the table can respond to previous/next events (button-based interface).
     :param font: The font for the cells.
     :param x: The x position of the view.
@@ -360,7 +360,7 @@ class Table(Responder):
         self._add_buttons = False
         self._start_offset = 0
         self._cells_per_page = max_cells
-
+    
     @property
     def items(self):
         return self._items
@@ -381,7 +381,7 @@ class Table(Responder):
     def update_cells(self):
         for i in range(len(self)-1, -1, -1):
             self.remove_subview(self[i])
-        
+
         end = self._start_offset + self._cells_per_page
         if end > len(self._items):
             end = len(self._items)
@@ -404,7 +404,7 @@ class Table(Responder):
         if self._start_offset + self._cells_per_page < len(self.items):
             self._start_offset += self._cells_per_page
             self.update_cells()
-    
+
     def handle_event(self, event):
         if event.event_type == Event.TOUCH_BEGAN:
             originator = event.user_info["originator"]
