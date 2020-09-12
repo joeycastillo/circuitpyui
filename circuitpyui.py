@@ -97,7 +97,7 @@ class Responder(displayio.Group):
         view.window = self if self.__class__ is Window else self.window
         self.append(view)
         if self.window is not None:
-            self.window.set_needs_display(True)
+            self.window.set_needs_display()
     
     def remove_subview(self, view):
         """Removes a Responder from the view hierarchy. Only for ``Responder``s and their subclasses;
@@ -107,11 +107,23 @@ class Responder(displayio.Group):
         view.window = None
         self.remove(view)
         if self.window is not None:
-            self.window.set_needs_display(True)
+            self.window.set_needs_display()
 
     def become_active(self):
         """Causes this view to become the active responder in the window."""
+        self.window.active_responder.will_resign_active()
+        self.will_become_active()
         self.window.active_responder = self
+
+    def will_resign_active(self):
+        """Called before a view resigns its status as the active responder.
+        Subclasses can override this to configure their appearance in response to this event."""
+        pass
+
+    def will_become_active(self):
+        """Called before a view becomes the active responder.
+        Subclasses can override this to configure their appearance in response to this event."""
+        pass
 
     def _contains(self, x, y):
         """Internal method to to determine if a point is contained within this responder, mostly for touch UI.
@@ -203,7 +215,7 @@ class Window(Responder):
     def needs_display(self):
         return self.dirty
         
-    def set_needs_display(self, needs_display):
+    def set_needs_display(self, needs_display = True):
         self.dirty = needs_display
 
 class Button(Responder):
@@ -245,6 +257,8 @@ class Button(Responder):
         return super().handle_event(event)
 
 class Cell(Responder):
+    SELECTION_STYLE_INVERT = const(1)
+    SELECTION_STYLE_INDICATOR = const(2)
     """A ``Cell`` is a specialized responder intended for use with a table or grid view. Comes with one label.
     You should not add additional groups to a cell; it has a max_size of 1. Eventually hope to add additional
     styles that support more labels or accessory views.
@@ -255,6 +269,8 @@ class Cell(Responder):
     :param height: The height of the view in pixels.
     :param max_glyphs: Maximum number of glyphs in the label. Optional if ``text`` is provided.
     :param text: Text for the label.
+    :param indent: Temporary API; indent from the left. Will eventually become a proper inset.
+    :param selection_style: Sets the appearance of the cell when it is the active responder.
     """
     def __init__(
         self,
@@ -264,12 +280,43 @@ class Cell(Responder):
         y=0,
         width=0,
         height=0,
+        color=0xFFFFFF,
         max_glyphs=None,
+        indent=0,
+        selection_style=None,
         text="",
     ):
-        super().__init__(x=x, y=y, width=width, height=height, max_size=1)
-        self.label = label.Label(font, x=0, y=self.height // 2, max_glyphs=max_glyphs, text=text)
+        super().__init__(x=x, y=y, width=width, height=height, max_size=2)
+        self.label = label.Label(font, x=indent, y=self.height // 2, max_glyphs=max_glyphs, color=color, text=text)
+        self.selection_style = selection_style
         self.append(self.label)
+
+    def will_become_active(self):
+        if self.selection_style is None:
+            return
+        elif self.selection_style == Cell.SELECTION_STYLE_INVERT:
+            bg_bitmap = displayio.Bitmap(self.width, self.height, 1)
+            bg_palette = displayio.Palette(1)
+            bg_palette[0] = self.label.color
+            self.background = displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette, x=0, y=0)
+            self.insert(0, self.background)
+            self.label.color = ~self.label.color & 0xFFFFFF
+        elif self.selection_style == Cell.SELECTION_STYLE_INDICATOR:
+            bg_bitmap = displayio.Bitmap(8, self.height, 1)
+            bg_palette = displayio.Palette(1)
+            bg_palette[0] = self.label.color
+            self.background = displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette, x=16, y=0)
+            self.append(self.background)
+        self.window.set_needs_display()
+
+    def will_resign_active(self):
+        if self.selection_style is None:
+            return
+        if self.background is not None:
+            self.remove(self.background)
+        if self.selection_style == Cell.SELECTION_STYLE_INVERT:
+            self.label.color = ~self.label.color & 0xFFFFFF
+        self.window.set_needs_display()
 
 class Table(Responder):
     """A ``Table`` manages a group of ``Cell``s, displaying as many as will fit in the view's display area. 
@@ -280,7 +327,10 @@ class Table(Responder):
     :param y: The y position of the view.
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
+    :param color: The foreground color for label text.
+    :param indent: Temporary API; cell indent from the left. Will eventually become a proper inset.
     :param cell_height: The height of each row in the table.
+    :param selection_style: Sets the appearance of cell that is the active responder.
     :param show_navigation_buttons: True to show previous/next buttons on screen. Useful for touch interfaces,
                                     or if the device does not have dedicated physical buttons for previous/next.
     """
@@ -292,13 +342,19 @@ class Table(Responder):
         y=0,
         width=0,
         height=0,
+        color=0xFFFFFF,
+        indent=0,
         cell_height=32,
+        selection_style=None,
         show_navigation_buttons=False,
     ):
         max_cells = height // cell_height
         super().__init__(x=x, y=y, width=width, height=height, max_size=max_cells + (1 if show_navigation_buttons else 0))
         self.cell_height = cell_height
         self.font = font
+        self.color = color
+        self.indent = indent
+        self.selection_style = selection_style
         self.show_navigation_buttons = show_navigation_buttons
         self._items = []
         self._add_buttons = False
@@ -330,11 +386,11 @@ class Table(Responder):
         if end > len(self._items):
             end = len(self._items)
         for i in range(0, end - self._start_offset):
-            cell = Cell(self.font, x=0, y=i * self.cell_height, width=self.width, height=self.cell_height, text=self._items[self._start_offset + i])
+            cell = Cell(self.font, x=0, y=i * self.cell_height, width=self.width, height=self.cell_height, color=self.color, indent=self.indent, selection_style=self.selection_style, text=self._items[self._start_offset + i])
             self.add_subview(cell)
         if self._add_buttons:
             for i in range(0, 2):
-                cell = Cell(self.font, x=i * self.width // 2, y=self._cells_per_page * self.cell_height, width=self.width // 2, height=self.cell_height, text="Previous" if i is 0 else "Next")
+                cell = Cell(self.font, x=i * self.width // 2, y=self._cells_per_page * self.cell_height, width=self.width // 2, height=self.cell_height, color=self.color, selection_style=Cell.SELECTION_STYLE_INVERT, text="Previous" if i is 0 else "Next")
                 self.add_subview(cell)
         if self[0] is not None:
             self[0].become_active()
