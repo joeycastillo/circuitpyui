@@ -1,5 +1,6 @@
 import displayio
-from adafruit_display_text import label
+from adafruit_display_text.label import Label
+from adafruit_display_shapes.roundrect import RoundRect
 from micropython import const
 import adafruit_button
 
@@ -200,6 +201,8 @@ class Window(Responder):
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
     :param max_size: Maximum number of groups that will be added.
+    :param highlight_active_responder: True to display a selection indicator on the active responder, useful for cursor-based
+                                       interfaces. Pass in False if you are using a touchscreen.
     """
     def __init__(
         self,
@@ -209,12 +212,14 @@ class Window(Responder):
         width=0,
         height=0,
         max_size=5,
+        highlight_active_responder=True,
     ):
         super().__init__(x=x, y=y, width=width, height=height, max_size=max_size)
         self.x = x
         self.y = y
         self.width = width
         self.height = height
+        self.highlight_active_responder=highlight_active_responder
         self.next_responder = None
         self.active_responder = self
         self.event_queue = []
@@ -251,7 +256,18 @@ class Window(Responder):
         self.dirty = needs_display
 
 class Button(Responder):
-    """Temporary class, just wraps an adafruit_button for testing."""
+    """a Responder that draws an outline and shows either an image or a text label.
+    :param x: The x position of the view.
+    :param y: The y position of the view.
+    :param width: The width of the view in pixels.
+    :param height: The height of the view in pixels.
+    :param color: The foreground color for text and button outline.
+    :param text: Optional text for a label. If you specify text, the bitmap parameter will be ignored.
+    :param font: Font for the label. Required if text was specified; otherwise, optional.
+    :param image: Optional, a TileGrid to display in the button. Will be ignored if text was also provided.
+                  Ideally 1-bit, since we'll try to apply a two-color palette with the provided color.
+    :param image_size: Temporary API, I don't think there's a way to query the TileGrid's size, so provide it here as a tuple.
+    """
     def __init__(
         self,
         *,
@@ -259,34 +275,74 @@ class Button(Responder):
         y=0,
         width=0,
         height=0,
-        max_size=5,
-        label=None,
-        font=None
+        color=0xFFFFFF,
+        text=None,
+        font=None,
+        image=None,
+        image_size=None,
     ):
-        super().__init__(x=x, y=y, width=width, height=height, max_size=max_size)
+        super().__init__(x=x, y=y, width=width, height=height, max_size=2)
         self.x = x
         self.y = y
         self.width = width
         self.height = height
         self.next_responder = None
-        self.button = adafruit_button.Button(x=0, y=0,
-                                             width=width,
-                                             height=height,
-                                             label=label,
-                                             label_font=font,
-                                             label_color=0x000000,
-                                             fill_color=0xFFFFFF, 
-                                             outline_color=0xFFFFFF,
-                                             selected_fill=0xFFFFFF, 
-                                             selected_outline=0x000000,
-                                             selected_label=0x000000)
-        self.append(self.button)
+        self.color = color
+        self.background = None
+        if text is not None:
+            self.label = Label(font, x=0, y=0, color=color, text=text)
+            self.image = None
+            dims = self.label.bounding_box
+            self.label.x = (self.width - dims[2]) // 2
+            self.label.y = self.height // 2
+            self.append(self.label)
+        elif image is not None:
+            self.label = None
+            self.image = image
+            self.image.x = (self.width - image_size[0]) // 2
+            self.image.y = (self.height - image_size[1]) // 2
+            self.append(self.image)
+        self._update_appearance(False)
 
-    def handle_event(self, event):
-        if event.event_type == TOUCH_BEGAN:
-            self.button.selected = True
-            return True
-        return super().handle_event(event)
+    def _update_appearance(self, active):
+        if active:
+            if self.background is not None:
+                self.remove(self.background)
+            self.background = RoundRect(0, 0, self.width, self.height, r=10, fill=self.color, outline=self.color)
+            self.insert(0, self.background)
+            if self.label is not None:
+                self.label.color = ~self.color & 0xFFFFFF
+            if self.image is not None:
+                palette = displayio.Palette(2)
+                palette[0] = ~self.color & 0xFFFFFF
+                palette[1] = self.color
+                self.image.pixel_shader = palette
+        else:
+            if self.background is not None:
+                self.remove(self.background)
+            self.background = RoundRect(0, 0, self.width, self.height, r=10, fill=~self.color & 0xFFFFFF, outline=self.color)
+            self.insert(0, self.background)
+            if self.label is not None:
+                self.label.color = self.color
+            if self.image is not None:
+                palette = displayio.Palette(2)
+                palette[0] = self.color
+                palette[1] = ~self.color & 0xFFFFFF
+                self.image.pixel_shader = palette
+        
+    def will_become_active(self):
+        if not self.window.highlight_active_responder:
+            return
+        else:
+            self._update_appearance(True)
+        self.window.set_needs_display()
+
+    def will_resign_active(self):
+        if not self.window.highlight_active_responder:
+            return
+        else:
+            self._update_appearance(False)
+        self.window.set_needs_display()
 
 class Cell(Responder):
     SELECTION_STYLE_INVERT = const(1)
@@ -319,7 +375,7 @@ class Cell(Responder):
         text="",
     ):
         super().__init__(x=x, y=y, width=width, height=height, max_size=2)
-        self.label = label.Label(font, x=indent, y=self.height // 2, max_glyphs=max_glyphs, color=color, text=text)
+        self.label = Label(font, x=indent, y=self.height // 2, max_glyphs=max_glyphs, color=color, text=text)
         self.selection_style = selection_style
         self.append(self.label)
 
@@ -418,11 +474,15 @@ class Table(Responder):
         if end > len(self._items):
             end = len(self._items)
         for i in range(0, end - self._start_offset):
-            cell = Cell(self.font, x=0, y=i * self.cell_height, width=self.width, height=self.cell_height, color=self.color, indent=self.indent, selection_style=self.selection_style, text=self._items[self._start_offset + i])
+            cell = Cell(self.font, x=0, y=i * self.cell_height, width=self.width, height=self.cell_height, color=self.color,
+            indent=self.indent, selection_style=self.selection_style if self.window.highlight_active_responder else None,
+            text=self._items[self._start_offset + i])
             self.add_subview(cell)
         if self._add_buttons:
             for i in range(0, 2):
-                cell = Cell(self.font, x=i * self.width // 2, y=self._cells_per_page * self.cell_height, width=self.width // 2, height=self.cell_height, color=self.color, selection_style=Cell.SELECTION_STYLE_INVERT, text="Previous" if i is 0 else "Next")
+                cell = Cell(self.font, x=i * self.width // 2, y=self._cells_per_page * self.cell_height, width=self.width // 2, height=self.cell_height,
+                color=self.color, selection_style=Cell.SELECTION_STYLE_INVERT if self.window.highlight_active_responder else None,
+                text="Previous" if i is 0 else "Next")
                 self.add_subview(cell)
         if self[0] is not None:
             self[0].become_active()
