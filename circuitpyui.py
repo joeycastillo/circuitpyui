@@ -102,8 +102,8 @@ class Responder(displayio.Group):
         view.next_responder = self
         view.window = self if self.__class__ is Window else self.window
         self.append(view)
-        if self.window is not None:
-            self.window.set_needs_display()
+        if view.window is not None:
+            view.window.set_needs_display()
 
     def remove_subview(self, view):
         """Removes a Responder from the view hierarchy. Only for ``Responder``s and their subclasses;
