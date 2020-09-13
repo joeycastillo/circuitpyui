@@ -48,7 +48,7 @@ class RunLoop():
         self.tasks.remove(task)
 
     def run(self):
-        """Repeatedly runs all tasks in the run loop. Will run until a task returns False.
+        """Repeatedly runs all tasks in the run loop. Will run until a task returns True.
         """
         while True:
             for task in self.tasks:
