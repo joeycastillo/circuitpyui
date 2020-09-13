@@ -57,7 +57,7 @@ class RunLoop():
                     (responder, event) = self.window.event_queue.pop(0)
                     responder.handle_event(event)
 
-    def generate_event(self, event_type, user_info = None):
+    def generate_event(self, event_type, user_info={}):
         """Generates an event. Tasks can call this method to create events from external inputs; for example, if the user pressed the
         "Select" button, you could generate a BUTTON_SELECT event in your button task. The window's active responder gets first crack
         at handling the event. If the active responder cannot handle the event, it will bubble up the responder chain.
@@ -116,18 +116,35 @@ class Responder(displayio.Group):
 
     def become_active(self):
         """Causes this view to become the active responder in the window."""
-        self.window.active_responder.will_resign_active()
+        old_responder = self.window.active_responder
+        old_responder.will_resign_active()
+        self.window.active_responder = None
+        old_responder.did_resign_active()
         self.will_become_active()
         self.window.active_responder = self
-
-    def will_resign_active(self):
-        """Called before a view resigns its status as the active responder.
-        Subclasses can override this to configure their appearance in response to this event."""
-        pass
+        self.did_become_active()
 
     def will_become_active(self):
-        """Called before a view becomes the active responder.
-        Subclasses can override this to configure their appearance in response to this event."""
+        """Called before a view becomes the active responder. Subclasses can override this method to configure
+        their appearance in response to this event; they are guaranteed to become active in just a moment.
+        Note that the window's active_responder will be None when this method is called."""
+        pass
+
+    def did_become_active(self):
+        """Called after a view becomes the active responder. Subclasses can override this method to perform
+        any required post-activation tasks.
+        """
+        pass
+
+    def will_resign_active(self):
+        """Called before a view resigns its status as the active responder. Subclasses can override this method
+        to configure their appearance in response to this event; they are guaranteed to become inactive shortly.
+        """
+        pass
+
+    def did_resign_active(self):
+        """Called after a view resigns its status as the active responder. Subclasses can override this to perform
+        any cleanup tasks. Note that the window's active_responder will be None when this method is called."""
         pass
 
     def _contains(self, x, y):
@@ -143,6 +160,7 @@ class Responder(displayio.Group):
         :return: True if the event was handled, False if not."""
         if event.event_type == Event.TOUCH_BEGAN or event.event_type is Event.BUTTON_SELECT:
             self.handle_event(Event(Event.TAPPED, {"originator" : self}))
+            return True
         if self.actions is not None and event.event_type in self.actions:
             self.actions[event.event_type](event)
             return True
@@ -254,6 +272,13 @@ class Window(Responder):
         return super().handle_event(event)
 
     def set_focus_targets(self, view, *, up=None, right=None, down=None, left=None):
+        """Tells the window which view should receive focus for a given directional button press.
+        :param view: The view whose focus targets you are setting.
+        :param up: The view that should be selected when a BUTTON_UP event is handled, or None if focus should stay on this view.
+        :param right: The view that should be selected when a BUTTON_RIGHT event is handled, or None if focus should stay on this view.
+        :param down: The view that should be selected when a BUTTON_DOWN event is handled, or None if focus should stay on this view.
+        :param left: The view that should be selected when a BUTTON_LEFT event is handled, or None if focus should stay on this view.
+        """
         if self.focus_info is None:
             self.focus_info = {}
         self.focus_info[view] = (up, right, down, left)
@@ -267,9 +292,13 @@ class Window(Responder):
         self.event_queue.append((responder, event))
 
     def needs_display(self):
+        """Checks whether the window needs display. Only really useful for that require manual refresh (like e-paper displays)."""
         return self.dirty
 
     def set_needs_display(self, needs_display = True):
+        """Sets or resets the value that will be returned from ``needs_display``. Automatically set whenever add_ or remove_subview
+        is called; if you add any raw displayio Groups or change things like label text, you may need to set this manually. And then
+        call ``set_needs_display(False)`` once you do refresh your display."""
         self.dirty = needs_display
 
 class Button(Responder):
@@ -556,4 +585,91 @@ class Table(Responder):
             elif event.event_type == Event.BUTTON_DOWN and cell_index < len(self) - 1:
                 self[cell_index + 1].become_active()
                 return True
+        return super().handle_event(event)
+
+class Alert(Responder):
+    """An ``Alert`` is a modal dialog that takes over the user's screen. It can have anywhere from 0 to 2 buttons.
+    Useful to inform the user of an error condition or seek confirmation of an action. Create the alert, then set
+    an action for TAPPED events on the alert. You will get an Event.TAPPED with the following items in user_info:
+        * button_index: the index of the button that the user pressed to dismiss the alert.
+        * alert: the alert itself.
+    To dismiss the alert, remove it from the view hierarchy, either from your tapped action or in some other manner.
+    :param font: The font for the alert.
+    :param text: The text for the alert.
+    :param x: The x position of the alert.
+    :param y: The y position of the alert.
+    :param width: The width of the alert in pixels.
+    :param height: The height of the alert in pixels.
+    :param color: The foreground color for the alert.
+    :param button_text: An array of strings with button titles. Try to keep this to one or two (they get narrower).
+    """
+    def __init__(
+        self,
+        font,
+        text,
+        *,
+        x=0,
+        y=0,
+        width=0,
+        height=0,
+        color=0xFFFFFF,
+        button_text=[]
+    ):
+        super().__init__(x=0, y=0, width=0, height=0, max_size=2 + len(button_text))
+        self.font = font
+        self.color = color
+        self.background = RoundRect(x, y, width, height, r=5, fill=~self.color & 0xFFFFFF, outline=self.color)
+        self.append(self.background)
+        if len(button_text) == 0:
+            self.label = Label(font, x=x + 8, y=y + (height // 2), color=color, text=text)
+        else:
+            self.label = Label(font, x=x + 8, y=y + (height // 2) - 32, color=color, text=text)
+        self.append(self.label)
+        self.buttons = []
+        for i in range(0, len(button_text)):
+            button = Button(x=x + 8 + i * (width - 8) // len(button_text),
+                            y=y + height - 32,
+                            width=(width - 8) // len(button_text) - 8,
+                            height=24,
+                            font=font,
+                            color=color,
+                            text=button_text[i])
+            self.buttons.append(button)
+        self.buttons_added = False
+
+    def will_become_active(self):
+        if not self.buttons_added:
+            for button in self.buttons:
+                self.add_subview(button)
+            self.buttons_added = True
+        self.width = self.window.width
+        self.height = self.window.height
+
+    def did_become_active(self):
+        if len(self.buttons):
+            self.buttons[0].become_active()
+
+    def handle_event(self, event):
+        if event.event_type == Event.TAPPED:
+            originator = event.user_info["originator"]
+            if originator == self:
+                return False # alert catches all touches that aren't buttons. don't let user escape the modal.
+            event.user_info["button_index"] = self.buttons.index(originator)
+        try:
+            active_index = self.buttons.index(self.window.active_responder)
+        except ValueError:
+            return False # we could not handle this event, do not forward
+        event.user_info["alert"] = self
+        if event.event_type == Event.BUTTON_LEFT:
+            if active_index > 0:
+                self.buttons[active_index - 1].become_active()
+                return True
+            else:
+                return False # do not forward up the chain; user cannot escape modal
+        elif event.event_type == Event.BUTTON_RIGHT:
+            if active_index < len(self.buttons) - 1:
+                self.buttons[active_index + 1].become_active()
+                return True
+            else:
+                return False # do not forward up the chain; user cannot escape modal
         return super().handle_event(event)
