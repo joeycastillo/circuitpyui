@@ -53,6 +53,9 @@ class RunLoop():
             for task in self.tasks:
                 if task.run(self):
                     return
+                while len(self.window.event_queue):
+                    (responder, event) = self.window.event_queue.pop(0)
+                    responder.handle_event(event)
 
     def generate_event(self, event_type, user_info = None):
         """Generates an event. Tasks can call this method to create events from external inputs; for example, if the user pressed the
@@ -160,14 +163,12 @@ class Responder(displayio.Group):
         if not self._contains(x, y):
             return None
         for subview in reversed(self): # process frontmost layers first
-            try:
+            if hasattr(subview, 'handle_touch') and callable(subview.handle_touch):
                 retval = subview.handle_touch(touched, x - self.x, y - self.y)
                 if retval is not None:
                     return retval
-            except AttributeError:
-                continue # plain displayio groups can live in the view hierarchy, but they don't participate in responder chains.
         if self._contains(x, y):
-            self.handle_event(Event(Event.TOUCH_BEGAN, {"x": x, "y": y, "originator" : self}))
+            self.window.queue_event(self, Event(Event.TOUCH_BEGAN, {"x": x, "y": y, "originator" : self}))
             return self
         return None
 
@@ -216,6 +217,7 @@ class Window(Responder):
         self.height = height
         self.next_responder = None
         self.active_responder = self
+        self.event_queue = []
         self.dirty = False
 
     def handle_event(self, event):
@@ -233,6 +235,14 @@ class Window(Responder):
             # TODO: Move focus down
             return True
         return super().handle_event(event)
+
+    def queue_event(self, responder, event):
+        """Queues an event to be handled after the current run loop task completes. This is useful to avoid exhausting the stack;
+        for example, after recursively locating the source of a touch event, we can queue the tap event so that the user's action
+        doesn't get called from the bottom of that stack of calls.
+        :param responder: the responder that should take first crack at handling the event.
+        :param event: the event to give it."""
+        self.event_queue.append((responder, event))
 
     def needs_display(self):
         return self.dirty
