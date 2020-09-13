@@ -2,7 +2,6 @@ import displayio
 from adafruit_display_text.label import Label
 from adafruit_display_shapes.roundrect import RoundRect
 from micropython import const
-import adafruit_button
 
 class Event():
     TAPPED = const(1)
