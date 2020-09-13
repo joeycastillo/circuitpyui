@@ -191,6 +191,11 @@ class Responder(displayio.Group):
         if not len(self.actions):
             self.actions = None
 
+    def __hash__(self):
+        """Needed to store the view in the focus target dict. Not sure if this is wise; curretly str(group) returns a string like
+        <Button object at 200063d0> which works, but it feels fragile. Open to a better way of doing this."""
+        return hash(str(self))
+
 class Window(Responder):
     """A window is the topmost view in a chain of responders. All responders should live in a tree under the window.
     In a touch environment, the window defers to Responder's ``handle_touch`` method to forward a touch to the correct responder.
@@ -223,22 +228,35 @@ class Window(Responder):
         self.active_responder = self
         self.event_queue = []
         self.dirty = False
+        self.focus_info = None
 
     def handle_event(self, event):
-        """By default, ``Window`` consumes direction pad events and the Select button, but no touches."""
-        if event.event_type is Event.BUTTON_LEFT:
-            # TODO: Move focus left
-            return True
-        if event.event_type is Event.BUTTON_RIGHT:
-            # TODO: Move focus right
-            return True
+        """Override of ``Responder``'s ``handle_event``. If you have provided focus targets, the ``Window`` will consume directional
+        button presses and move the active responder if possible. Note that subviews can also consume these button presses and prevent
+        the window from moving focus (useful for, say, a slider that wants to steal left and right presses, but still pass along
+        up and down presses).
+        :param event: the event to be handled.
+        """
+        if self.focus_info is None or not event.event_type in [Event.BUTTON_UP, Event.BUTTON_RIGHT, Event.BUTTON_DOWN, Event.BUTTON_LEFT] or not self.active_responder in self.focus_info:
+            return super().handle_event(event)
+
         if event.event_type is Event.BUTTON_UP:
-            # TODO: Move focus up
-            return True
+            target = self.focus_info[self.active_responder][0]
+        if event.event_type is Event.BUTTON_RIGHT:
+            target = self.focus_info[self.active_responder][1]
         if event.event_type is Event.BUTTON_DOWN:
-            # TODO: Move focus down
+            target = self.focus_info[self.active_responder][2]
+        if event.event_type is Event.BUTTON_LEFT:
+            target = self.focus_info[self.active_responder][3]
+        if target is not None:
+            target.become_active()
             return True
         return super().handle_event(event)
+
+    def set_focus_targets(self, view, *, up=None, right=None, down=None, left=None):
+        if self.focus_info is None:
+            self.focus_info = {}
+        self.focus_info[view] = (up, right, down, left)
 
     def queue_event(self, responder, event):
         """Queues an event to be handled after the current run loop task completes. This is useful to avoid exhausting the stack;
