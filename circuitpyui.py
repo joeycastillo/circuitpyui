@@ -1,6 +1,7 @@
 import displayio
 from adafruit_display_text.label import Label
 from adafruit_display_shapes.roundrect import RoundRect
+from adafruit_display_shapes.rect import Rect
 from micropython import const
 
 class Event():
@@ -65,6 +66,39 @@ class RunLoop():
         :param user_info: An optional dictionary with additional information about the event."""
         self.window.active_responder.handle_event(Event(event_type, user_info))
 
+class Style():
+    """An object describing the physical appearance of a Responder. Technically all params are optional (default values are substituted),
+    but if the style is applied to any object with a text label, the ``font`` property must be supplied.
+    :param font: The font to use for any text labels.
+    :param foreground_color: The color for any text or control outlines.
+    :param background_color: The color for any fills or backgrounds.
+    :param active_foreground_color: The color for any text or control outlines when the responder is active.
+    :param active_background_color: The color for any fills or backgrounds when the responder is active.
+    :param button_radius: The corner radius for buttons and similar tappable controls.
+    :param container_radius: The corner radius for containers like modal dialogs or popup menus.
+    :param content_insets: a 4-tuple of insets from the top, right, bottom and left. Not all controls use this.
+    """
+    def __init__(
+        self,
+        *,
+        font=None,
+        foreground_color=0xFFFFFF,
+        background_color=0x000000,
+        active_foreground_color=0x000000,
+        active_background_color=0xFFFFFF,
+        button_radius=10,
+        container_radius=5,
+        content_insets=(0, 0, 0, 0),
+    ):
+        self.font = font
+        self.foreground_color = foreground_color
+        self.background_color = background_color
+        self.active_foreground_color = active_foreground_color
+        self.active_background_color = active_background_color
+        self.button_radius = button_radius
+        self.container_radius = container_radius
+        self.content_insets = content_insets
+
 class Responder(displayio.Group):
     """Base class for ``circuitpyui`` classes. Has a position and a size.
     When you add a responder to another responder using ``add_subview``, it will join a chain of responders that can handle
@@ -74,6 +108,7 @@ class Responder(displayio.Group):
     :param y: The y position of the view.
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
+    :param style: Optional Style object. If no style is specified, we'll fall back to the style of the window.
     :param max_size: Maximum number of groups and responders that will be added.
     """
     def __init__(
@@ -83,6 +118,7 @@ class Responder(displayio.Group):
         y=0,
         width=0,
         height=0,
+        style=None,
         max_size=5,
     ):
         super().__init__(x=x, y=y, max_size=max_size)
@@ -90,9 +126,18 @@ class Responder(displayio.Group):
         self.y = y
         self.width = width
         self.height = height
+        self._style = style
         self.next_responder = None
         self.window = None
         self.actions = None
+
+    @property 
+    def style(self):
+        if self._style is not None:
+            return self._style
+        elif self.window is not None:
+            return self.window._style
+        return None
 
     def add_subview(self, view):
         """Adds a Responder to the view hierarchy. Only for ``Responder``s and their subclasses;
@@ -103,11 +148,14 @@ class Responder(displayio.Group):
         self.append(view)
         if view.window is not None:
             view.window.set_needs_display()
+        view.moved_to_window()
 
     def remove_subview(self, view):
         """Removes a Responder from the view hierarchy. Only for ``Responder``s and their subclasses;
         if you are removing a plain displayio ``Group``, use remove() instead.
         :param view: The view to remove from the hierarchy."""
+        if view == view.window.active_responder:
+            view.resign_active()
         view.next_responder = None
         view.window = None
         self.remove(view)
@@ -123,6 +171,22 @@ class Responder(displayio.Group):
         self.will_become_active()
         self.window.active_responder = self
         self.did_become_active()
+
+    def resign_active(self):
+        """Causes this view to become the active responder in the window."""
+        if self is not self.window.active_responder:
+            return
+        self.will_resign_active()
+        self.window.active_responder = None
+        self.did_resign_active()
+        self.window.will_become_active()
+        self.window.active_responder = self.window
+        self.window.did_become_active()
+
+    def moved_to_window(self):
+        """Called when the view moves to its window. Useful for setting up any styled objects, since you now
+        have access to both the view's style and the window's style."""
+        pass
 
     def will_become_active(self):
         """Called before a view becomes the active responder. Subclasses can override this method to configure
@@ -218,6 +282,7 @@ class Window(Responder):
     """A window is the topmost view in a chain of responders. All responders should live in a tree under the window.
     In a touch environment, the window defers to Responder's ``handle_touch`` method to forward a touch to the correct responder.
     In a cursor-based environment, the window can handle pushbutton events to move focus between responders.
+    :param style: Style object defining the appearance of views in this window. Required, and recommend setting a font.
     :param x: The x position of the view.
     :param y: The y position of the view.
     :param width: The width of the view in pixels.
@@ -228,6 +293,7 @@ class Window(Responder):
     """
     def __init__(
         self,
+        style,
         *,
         x=0,
         y=0,
@@ -236,7 +302,7 @@ class Window(Responder):
         max_size=5,
         highlight_active_responder=True,
     ):
-        super().__init__(x=x, y=y, width=width, height=height, max_size=max_size)
+        super().__init__(x=x, y=y, width=width, height=height, style=style, max_size=max_size)
         self.x = x
         self.y = y
         self.width = width
@@ -307,9 +373,8 @@ class Button(Responder):
     :param y: The y position of the view.
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
-    :param color: The foreground color for text and button outline.
+    :param style: a Style object defining the Button's appearance, or None to fall back to the Window's appearance.
     :param text: Optional text for a label. If you specify text, the bitmap parameter will be ignored.
-    :param font: Font for the label. Required if text was specified; otherwise, optional.
     :param image: Optional, a TileGrid to display in the button. Will be ignored if text was also provided.
                   Ideally 1-bit, since we'll try to apply a two-color palette with the provided color.
     :param image_size: Temporary API, I don't think there's a way to query the TileGrid's size, so provide it here as a tuple.
@@ -321,32 +386,33 @@ class Button(Responder):
         y=0,
         width=0,
         height=0,
-        color=0xFFFFFF,
+        style=None,
         text=None,
-        font=None,
         image=None,
         image_size=None,
     ):
-        super().__init__(x=x, y=y, width=width, height=height, max_size=2)
+        super().__init__(x=x, y=y, width=width, height=height, style=style, max_size=2)
         self.x = x
         self.y = y
         self.width = width
         self.height = height
-        self.next_responder = None
-        self.color = color
         self.background = None
-        if text is not None:
-            self.label = Label(font, x=0, y=0, color=color, text=text)
+        self.image = image
+        self.image_size = image_size
+        self.text = text
+    
+    def moved_to_window(self):
+        if self.text is not None:
+            self.label = Label(self.style.font, x=0, y=0, text=self.text)
             self.image = None
             dims = self.label.bounding_box
             self.label.x = (self.width - dims[2]) // 2
             self.label.y = self.height // 2
             self.append(self.label)
-        elif image is not None:
+        elif self.image is not None:
             self.label = None
-            self.image = image
-            self.image.x = (self.width - image_size[0]) // 2
-            self.image.y = (self.height - image_size[1]) // 2
+            self.image.x = (self.width - self.image_size[0]) // 2
+            self.image.y = (self.height - self.image_size[1]) // 2
             self.append(self.image)
         self._update_appearance(False)
 
@@ -354,26 +420,26 @@ class Button(Responder):
         if active:
             if self.background is not None:
                 self.remove(self.background)
-            self.background = RoundRect(0, 0, self.width, self.height, r=10, fill=self.color, outline=self.color)
+            self.background = RoundRect(0, 0, self.width, self.height, r=self.style.button_radius, fill=self.style.active_background_color, outline=self.style.active_foreground_color)
             self.insert(0, self.background)
             if self.label is not None:
-                self.label.color = ~self.color & 0xFFFFFF
+                self.label.color = self.style.active_foreground_color
             if self.image is not None:
                 palette = displayio.Palette(2)
-                palette[0] = ~self.color & 0xFFFFFF
-                palette[1] = self.color
+                palette[0] = self.style.active_foreground_color
+                palette[1] = self.style.active_background_color
                 self.image.pixel_shader = palette
         else:
             if self.background is not None:
                 self.remove(self.background)
-            self.background = RoundRect(0, 0, self.width, self.height, r=10, fill=~self.color & 0xFFFFFF, outline=self.color)
+            self.background = RoundRect(0, 0, self.width, self.height, r=self.style.button_radius, fill=self.style.background_color, outline=self.style.foreground_color)
             self.insert(0, self.background)
             if self.label is not None:
-                self.label.color = self.color
+                self.label.color = self.style.foreground_color
             if self.image is not None:
                 palette = displayio.Palette(2)
-                palette[0] = self.color
-                palette[1] = ~self.color & 0xFFFFFF
+                palette[0] = self.style.foreground_color
+                palette[1] = self.style.background_color
                 self.image.pixel_shader = palette
         
     def will_become_active(self):
@@ -391,55 +457,59 @@ class Button(Responder):
         self.window.set_needs_display()
 
 class Cell(Responder):
-    SELECTION_STYLE_INVERT = const(1)
+    SELECTION_STYLE_HIGHLIGHT = const(1)
     SELECTION_STYLE_INDICATOR = const(2)
     """A ``Cell`` is a specialized responder intended for use with a table or grid view. Comes with one label.
     You should not add additional groups to a cell; it has a max_size of 1. Eventually hope to add additional
     styles that support more labels or accessory views.
+    :note: at this time a background is only drawn on the active row; other rows respect style.foreground_color,
+           but style.background_color is ignored.
     :param font: The font for the label.
     :param x: The x position of the view.
     :param y: The y position of the view.
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
+    :param style: a Style object defining the Cell's appearance, or None to fall back to the Cell's appearance.
     :param max_glyphs: Maximum number of glyphs in the label. Optional if ``text`` is provided.
     :param text: Text for the label.
-    :param indent: Temporary API; indent from the left. Will eventually become a proper inset.
     :param selection_style: Sets the appearance of the cell when it is the active responder.
     """
     def __init__(
         self,
-        font,
         *,
         x=0,
         y=0,
         width=0,
         height=0,
-        color=0xFFFFFF,
+        style=None,
         max_glyphs=None,
-        indent=0,
         selection_style=None,
         text="",
     ):
-        super().__init__(x=x, y=y, width=width, height=height, max_size=2)
-        self.label = Label(font, x=indent, y=self.height // 2, max_glyphs=max_glyphs, color=color, text=text)
+        super().__init__(x=x, y=y, width=width, height=height, style=style, max_size=2)
+        self.text = text
         self.selection_style = selection_style
+
+    def moved_to_window(self):
+        self.label = Label(self.style.font, x=self.style.content_insets[3], y=self.height // 2, max_glyphs=len(self.text), color=self.style.foreground_color, text=self.text)
+        if self.selection_style == Cell.SELECTION_STYLE_HIGHLIGHT:
+            # quick hack, center previous/next buttons
+            # TODO: add alignment to the Style class
+            dims = self.label.bounding_box
+            self.label.x = (self.width - dims[2]) // 2
+            self.label.y = self.height // 2
+        self.selection_style = self.selection_style
         self.append(self.label)
 
     def will_become_active(self):
         if self.selection_style is None:
             return
-        elif self.selection_style == Cell.SELECTION_STYLE_INVERT:
-            bg_bitmap = displayio.Bitmap(self.width, self.height, 1)
-            bg_palette = displayio.Palette(1)
-            bg_palette[0] = self.label.color
-            self.background = displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette, x=0, y=0)
+        elif self.selection_style == Cell.SELECTION_STYLE_HIGHLIGHT:
+            self.background = Rect(0, 0, self.width, self.height, fill=self.style.active_background_color, outline=self.style.active_background_color)
             self.insert(0, self.background)
-            self.label.color = ~self.label.color & 0xFFFFFF
+            self.label.color = self.style.active_foreground_color
         elif self.selection_style == Cell.SELECTION_STYLE_INDICATOR:
-            bg_bitmap = displayio.Bitmap(8, self.height, 1)
-            bg_palette = displayio.Palette(1)
-            bg_palette[0] = self.label.color
-            self.background = displayio.TileGrid(bg_bitmap, pixel_shader=bg_palette, x=16, y=0)
+            self.background = Rect(16, 0, 8, self.height, fill=self.style.active_background_color, outline=self.style.active_background_color)
             self.append(self.background)
         self.window.set_needs_display()
 
@@ -448,8 +518,8 @@ class Cell(Responder):
             return
         if self.background is not None:
             self.remove(self.background)
-        if self.selection_style == Cell.SELECTION_STYLE_INVERT:
-            self.label.color = ~self.label.color & 0xFFFFFF
+        if self.selection_style == Cell.SELECTION_STYLE_HIGHLIGHT:
+            self.label.color = self.style.foreground_color
         self.window.set_needs_display()
 
 class Table(Responder):
@@ -461,7 +531,7 @@ class Table(Responder):
     :param y: The y position of the view.
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
-    :param color: The foreground color for label text.
+    :param style: a Style object defining the Table's appearance, or None to fall back to the Window's appearance.
     :param indent: Temporary API; cell indent from the left. Will eventually become a proper inset.
     :param cell_height: The height of each row in the table.
     :param selection_style: Sets the appearance of cell that is the active responder.
@@ -470,24 +540,19 @@ class Table(Responder):
     """
     def __init__(
         self,
-        font,
         *,
         x=0,
         y=0,
         width=0,
         height=0,
-        color=0xFFFFFF,
-        indent=0,
+        style=None,
         cell_height=32,
         selection_style=None,
         show_navigation_buttons=False,
     ):
         max_cells = height // cell_height
-        super().__init__(x=x, y=y, width=width, height=height, max_size=max_cells + (1 if show_navigation_buttons else 0))
+        super().__init__(x=x, y=y, width=width, height=height, style=style, max_size=max_cells + (1 if show_navigation_buttons else 0))
         self.cell_height = cell_height
-        self.font = font
-        self.color = color
-        self.indent = indent
         self.selection_style = selection_style
         self.show_navigation_buttons = show_navigation_buttons
         self._items = []
@@ -520,15 +585,13 @@ class Table(Responder):
         if end > len(self._items):
             end = len(self._items)
         for i in range(0, end - self._start_offset):
-            cell = Cell(self.font, x=0, y=i * self.cell_height, width=self.width, height=self.cell_height, color=self.color,
-            indent=self.indent, selection_style=self.selection_style if self.window.highlight_active_responder else None,
-            text=self._items[self._start_offset + i])
+            cell = Cell(x=0, y=i * self.cell_height, width=self.width, height=self.cell_height,
+            style=self._style, selection_style=self.selection_style if self.window.highlight_active_responder else None, text=self._items[self._start_offset + i])
             self.add_subview(cell)
         if self._add_buttons:
             for i in range(0, 2):
-                cell = Cell(self.font, x=i * self.width // 2, y=self._cells_per_page * self.cell_height, width=self.width // 2, height=self.cell_height,
-                color=self.color, selection_style=Cell.SELECTION_STYLE_INVERT if self.window.highlight_active_responder else None,
-                text="Previous" if i is 0 else "Next")
+                cell = Cell(x=i * self.width // 2, y=self._cells_per_page * self.cell_height, width=self.width // 2, height=self.cell_height,
+                selection_style=Cell.SELECTION_STYLE_HIGHLIGHT if self.window.highlight_active_responder else None, text="Previous" if i is 0 else "Next")
                 self.add_subview(cell)
         if self[0] is not None:
             self[0].become_active()
@@ -588,7 +651,7 @@ class Table(Responder):
         return super().handle_event(event)
 
 class Alert(Responder):
-    """An ``Alert`` is a modal dialog that takes over the user's screen. It can have anywhere from 0 to 2 buttons.
+    """An ``Alert`` is a modal dialog that takes over the user's screen. It can have multiple buttons for response.
     Useful to inform the user of an error condition or seek confirmation of an action. Create the alert, then set
     an action for TAPPED events on the alert. You will get an Event.TAPPED with the following items in user_info:
         * button_index: the index of the button that the user pressed to dismiss the alert.
@@ -596,54 +659,44 @@ class Alert(Responder):
     To dismiss the alert, remove it from the view hierarchy, either from your tapped action or in some other manner.
     :param font: The font for the alert.
     :param text: The text for the alert.
-    :param x: The x position of the alert.
-    :param y: The y position of the alert.
     :param width: The width of the alert in pixels.
-    :param height: The height of the alert in pixels.
+    :param height: The height of the alert in pixels. The alert will be automatically centered on the screen.
     :param color: The foreground color for the alert.
     :param button_text: An array of strings with button titles. Try to keep this to one or two (they get narrower).
     """
     def __init__(
         self,
-        font,
         text,
         *,
-        x=0,
-        y=0,
         width=0,
         height=0,
-        color=0xFFFFFF,
+        style=None,
         button_text=[]
     ):
-        super().__init__(x=0, y=0, width=0, height=0, max_size=2 + len(button_text))
-        self.font = font
-        self.color = color
-        self.background = RoundRect(x, y, width, height, r=5, fill=~self.color & 0xFFFFFF, outline=self.color)
-        self.append(self.background)
-        if len(button_text) == 0:
-            self.label = Label(font, x=x + 8, y=y + (height // 2), color=color, text=text)
-        else:
-            self.label = Label(font, x=x + 8, y=y + (height // 2) - 32, color=color, text=text)
-        self.append(self.label)
-        self.buttons = []
-        for i in range(0, len(button_text)):
-            button = Button(x=x + 8 + i * (width - 8) // len(button_text),
-                            y=y + height - 32,
-                            width=(width - 8) // len(button_text) - 8,
-                            height=24,
-                            font=font,
-                            color=color,
-                            text=button_text[i])
-            self.buttons.append(button)
-        self.buttons_added = False
-
-    def will_become_active(self):
-        if not self.buttons_added:
-            for button in self.buttons:
-                self.add_subview(button)
-            self.buttons_added = True
+        super().__init__(x=0, y=0, width=0, height=0, style=style, max_size=2 + len(button_text))
+        self.text = text
+        self.button_text = button_text
+        self.alert_width = width
+        self.alert_height = height
+        
+    def moved_to_window(self):
         self.width = self.window.width
         self.height = self.window.height
+        x = (self.width - self.alert_width) // 2
+        y = (self.height - self.alert_height) // 2
+        self.background = RoundRect(x, y, self.alert_width, self.alert_height, r=self.style.container_radius, fill=self.style.background_color, outline=self.style.foreground_color)
+        self.append(self.background)
+        if len(self.button_text) == 0:
+            self.label = Label(self.style.font, x=x + 8, y=y + (self.alert_height // 2), color=self.style.foreground_color, text=self.text)
+        else:
+            self.label = Label(self.style.font, x=x + 8, y=y + (self.alert_height // 2) - 16, color=self.style.foreground_color, text=self.text)
+        self.append(self.label)
+        self.buttons = []
+        for i in range(0, len(self.button_text)):
+            button = Button(x=x + 8 + i * (self.alert_width - 8) // len(self.button_text), y=y + self.alert_height - 32,
+                            width=(self.alert_width - 8) // len(self.button_text) - 8, height=24, style=self._style, text=self.button_text[i])
+            self.buttons.append(button)
+            self.add_subview(button)
 
     def did_become_active(self):
         if len(self.buttons):
