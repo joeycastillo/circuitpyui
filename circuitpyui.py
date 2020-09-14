@@ -21,24 +21,34 @@ class Event():
         self.user_info = user_info
 
 class Task():
+    """a ``Task`` is a simple class with one method, ``run``. ``Task``s are a way for a circuitpyui application to accept
+    input from (and send output to) the hardware around it. For example, you might create a ``TouchscreenTask`` that routes
+    touches from a touchscreen to an application's window, or a ``ButtonTask`` that converts button presses to ``Event``s
+    that ``Responders`` can consume and respond to.
+    You should create ``Task``s  for any event sources and output peripherals associated with your hardware. Ideally they
+    should be decoupled from application logic, merely generating events or (in the case of touchscreens) passing touches.
+    Your ``run`` method should not return anything; the ``Application`` will leave its run loop if any ``Task``'s ``run`` 
+    method returns True or anything truthy."""
     def __init__(self):
         pass
 
-    def run(self, runloop):
+    def run(self, application):
         pass
 
-class RunLoop():
-    """Runs a set of tasks in a loop. Each task should have one method, ``run``, that will perform whatever actions the task
-    needs to do to serve its purpose. The run loop will run until a Task's ``run`` method returns True. Tasks run in the order
-    added, so it would make sense to add your input tasks (i.e. collect touches and button presses) before your output tasks
-    (refresh the screen, etc).
-    :param window: The window associated with the run loop."""
+class Application():
+    """an ``Application`` manages a set of ``Task``s running in a loop, as well as a ``Window`` that displays your UI.
+    You should subclass ``Application`` and encapsulate all your program-specific logic within that custom class.
+    This is also where you will add handlers for ``Event``s: use the ``Responder``'s ``add_action`` method, and pass
+    in an instance method with a signature like ``handler(self, event)``. When the ``Responder`` gets a matching
+    ``Event``, your handler will be called."""
     def __init__(self, window):
         self.window = window
+        self.window.application = self
         self.tasks = []
 
     def add_task(self, task):
-        """Adds a task to the run loop.
+        """Adds a task to the run loop. Tasks run in the order added, so it probably makes sense to add your input tasks 
+        (i.e. collect touches and button presses) before your output tasks (refresh the screen, etc).
         :param task: The task to add."""
         self.tasks.append(task)
 
@@ -226,7 +236,7 @@ class Responder(displayio.Group):
             self.handle_event(Event(Event.TAPPED, {"originator" : self}))
             return True
         if self.actions is not None and event.event_type in self.actions:
-            self.actions[event.event_type](event)
+            self.actions[event.event_type](self.window.application, event)
             return True
         elif self.next_responder is not None:
             return self.next_responder.handle_event(event)
@@ -311,6 +321,7 @@ class Window(Responder):
         self.next_responder = None
         self.active_responder = self
         self.event_queue = []
+        self.application = None
         self.dirty = False
         self.focus_info = None
 
