@@ -29,7 +29,7 @@ class DemoApplication(circuitpyui.Application):
         # menu is a subview that will contain all our buttons. it serves two purposes: one, it has a position,
         # and all its subviews will lay out from that origin. Two, we can set an action on it, and it will get
         # callbacks when an event bubbles up to it.
-        menu = circuitpyui.Responder(x=16, y=40, width=display.width, height=display.height, max_size=6)
+        menu = circuitpyui.View(x=16, y=40, width=display.width, height=display.height, max_size=6)
         self.window.add_subview(menu)
         sprite_sheet, palette = adafruit_imageload.load("/cp_sprite_sheet.bmp", bitmap=displayio.Bitmap, palette=displayio.Palette)
         buttons = []
@@ -40,7 +40,7 @@ class DemoApplication(circuitpyui.Application):
 
             # for this demo, we are setting an action for each button. This means whenever one of these is tapped,
             # the item_selected handler will be called. But! Events don't have to be captured immediately. If these
-            # buttons did not have an action for the TAPPED event, the event would bubble up to the next responder,
+            # buttons did not have an action for the TAPPED event, the event would bubble up to the next view,
             # which is the containing view. Try deleting this line, and replacing it with this after the loop:
             # menu.set_action(DemoApplication.item_selected, Event.TAPPED)
             button.set_action(DemoApplication.item_selected, Event.TAPPED)

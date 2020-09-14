@@ -1,17 +1,18 @@
 import displayio
-from .core import Event, Task, Application, Style, Responder, Window
+from .core import Event, Task, Application, Style, View, Window
 from adafruit_display_text.label import Label
 from adafruit_display_shapes.roundrect import RoundRect
 from adafruit_display_shapes.rect import Rect
 
-class Button(Responder):
-    """a Responder that draws an outline and shows either an image or a text label.
+class Button(View):
+    """a View that draws an outline and shows either an image or a text label.
     :param x: The x position of the view.
     :param y: The y position of the view.
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
     :param style: a Style object defining the Button's appearance, or None to fall back to the Window's appearance.
     :param text: Optional text for a label. If you specify text, the bitmap parameter will be ignored.
+    :param max_glyphs: Optional max glyphs for label. In case you plan to change the text later.
     :param image: Optional, a TileGrid to display in the button. Will be ignored if text was also provided.
                   Ideally 1-bit, since we'll try to apply a two-color palette with the provided color.
     :param image_size: Temporary API, I don't think there's a way to query the TileGrid's size, so provide it here as a tuple.
@@ -25,6 +26,7 @@ class Button(Responder):
         height=0,
         style=None,
         text=None,
+        max_glyphs=None,
         image=None,
         image_size=None,
     ):
@@ -37,10 +39,11 @@ class Button(Responder):
         self.image = image
         self.image_size = image_size
         self.text = text
+        self.max_glyphs = max_glyphs
 
     def moved_to_window(self):
         if self.text is not None:
-            self.label = Label(self.style.font, x=0, y=0, text=self.text)
+            self.label = Label(self.style.font, x=0, y=0, text=self.text, max_glyphs=self.max_glyphs if self.max_glyphs is not None else len(self.text))
             self.image = None
             dims = self.label.bounding_box
             self.label.x = (self.width - dims[2]) // 2
@@ -93,10 +96,10 @@ class Button(Responder):
             self._update_appearance(False)
         self.window.set_needs_display()
 
-class Cell(Responder):
+class Cell(View):
     SELECTION_STYLE_HIGHLIGHT = const(1)
     SELECTION_STYLE_INDICATOR = const(2)
-    """A ``Cell`` is a specialized responder intended for use with a table or grid view. Comes with one label.
+    """A ``Cell`` is a specialized view intended for use with a table or grid view. Comes with one label.
     You should not add additional groups to a cell; it has a max_size of 1. Eventually hope to add additional
     styles that support more labels or accessory views.
     :note: at this time a background is only drawn on the active row; other rows respect style.foreground_color,
@@ -109,7 +112,7 @@ class Cell(Responder):
     :param style: a Style object defining the Cell's appearance, or None to fall back to the Cell's appearance.
     :param max_glyphs: Maximum number of glyphs in the label. Optional if ``text`` is provided.
     :param text: Text for the label.
-    :param selection_style: Sets the appearance of the cell when it is the active responder.
+    :param selection_style: Sets the appearance of the cell when it is the active view.
     """
     def __init__(
         self,
@@ -159,7 +162,7 @@ class Cell(Responder):
             self.label.color = self.style.foreground_color
         self.window.set_needs_display()
 
-class Table(Responder):
+class Table(View):
     """A ``Table`` manages a group of ``Cell``s, displaying as many as will fit in the view's display area.
     If there is more than one screen's worth of content, an on-screen previous/next page button can be added
     (for touchscreen interfaces) or the table can respond to previous/next events (button-based interface).
@@ -171,7 +174,7 @@ class Table(Responder):
     :param style: a Style object defining the Table's appearance, or None to fall back to the Window's appearance.
     :param indent: Temporary API; cell indent from the left. Will eventually become a proper inset.
     :param cell_height: The height of each row in the table.
-    :param selection_style: Sets the appearance of cell that is the active responder.
+    :param selection_style: Sets the appearance of cell that is the active view.
     :param show_navigation_buttons: True to show previous/next buttons on screen. Useful for touch interfaces,
                                     or if the device does not have dedicated physical buttons for previous/next.
     """
@@ -287,7 +290,7 @@ class Table(Responder):
                 return True
         return super().handle_event(event)
 
-class Alert(Responder):
+class Alert(View):
     """An ``Alert`` is a modal dialog that takes over the user's screen. It can have multiple buttons for response.
     Useful to inform the user of an error condition or seek confirmation of an action. Create the alert, then set
     an action for TAPPED events on the alert. You will get an Event.TAPPED with the following items in user_info:

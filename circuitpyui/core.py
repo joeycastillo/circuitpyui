@@ -40,8 +40,8 @@ class Task():
 class Application():
     """an ``Application`` manages a set of ``Task``s running in a loop, as well as a ``Window`` that displays your UI.
     You should subclass ``Application`` and encapsulate all your program-specific logic within that custom class.
-    This is also where you will add handlers for ``Event``s: use the ``Responder``'s ``add_action`` method, and pass
-    in an instance method with a signature like ``handler(self, event)``. When the ``Responder`` gets a matching
+    This is also where you will add handlers for ``Event``s: use the ``View``'s ``add_action`` method, and pass
+    in an instance method with a signature like ``handler(self, event)``. When the ``View`` gets a matching
     ``Event``, your handler will be called."""
     def __init__(self, window):
         self.window = window
@@ -67,25 +67,25 @@ class Application():
                 if task.run(self):
                     return
                 while len(self.window.event_queue):
-                    (responder, event) = self.window.event_queue.pop(0)
-                    responder.handle_event(event)
+                    (view, event) = self.window.event_queue.pop(0)
+                    view.handle_event(event)
 
     def generate_event(self, event_type, user_info={}):
         """Generates an event. Tasks can call this method to create events from external inputs; for example, if the user pressed the
-        "Left" button, you could generate a BUTTON_LEFT event in your button task. The window's active responder gets first crack
-        at handling the event. If the active responder cannot handle the event, it will bubble up the responder chain.
+        "Left" button, you could generate a BUTTON_LEFT event in your button task. The window's active view gets first crack
+        at handling the event. If the active view cannot handle the event, it will bubble up the responder chain.
         :param event_type: The type of event to generate.
         :param user_info: An optional dictionary with additional information about the event."""
         self.window.active_responder.handle_event(Event(event_type, user_info))
 
 class Style():
-    """An object describing the physical appearance of a Responder. Technically all params are optional (default values are substituted),
+    """An object describing the physical appearance of a View. Technically all params are optional (default values are substituted),
     but if the style is applied to any object with a text label, the ``font`` property must be supplied.
     :param font: The font to use for any text labels.
     :param foreground_color: The color for any text or control outlines.
     :param background_color: The color for any fills or backgrounds.
-    :param active_foreground_color: The color for any text or control outlines when the responder is active.
-    :param active_background_color: The color for any fills or backgrounds when the responder is active.
+    :param active_foreground_color: The color for any text or control outlines when the view is active.
+    :param active_background_color: The color for any fills or backgrounds when the view is active.
     :param button_radius: The corner radius for buttons and similar tappable controls.
     :param container_radius: The corner radius for containers like modal dialogs or popup menus.
     :param content_insets: a 4-tuple of insets from the top, right, bottom and left. Not all controls use this.
@@ -111,10 +111,10 @@ class Style():
         self.container_radius = container_radius
         self.content_insets = content_insets
 
-class Responder(displayio.Group):
+class View(displayio.Group):
     """Base class for ``circuitpyui`` classes. Has a position and a size.
-    When you add a responder to another responder using ``add_subview``, it will join a chain of responders that can handle
-    and pass along ``Event``s. When an event is generated, the originating responder will have a chance to handle it.
+    When you add a view to another view using ``add_subview``, it will join a chain of responders that can handle
+    and pass along ``Event``s. When an event is generated, the originating view will have a chance to handle it.
     If it does not, the event should pass to the next_responder.
     :param x: The x position of the view.
     :param y: The y position of the view.
@@ -152,7 +152,7 @@ class Responder(displayio.Group):
         return None
 
     def add_subview(self, view):
-        """Adds a Responder to the view hierarchy. Only for ``Responder``s and their subclasses;
+        """Adds a View to the view hierarchy. Only for ``View``s and their subclasses;
         if you are adding a plain displayio ``Group``, use append() instead.
         :param view: The view to add to the hierarchy."""
         view.next_responder = self
@@ -163,7 +163,7 @@ class Responder(displayio.Group):
         view.moved_to_window()
 
     def remove_subview(self, view):
-        """Removes a Responder from the view hierarchy. Only for ``Responder``s and their subclasses;
+        """Removes a View from the view hierarchy. Only for ``View``s and their subclasses;
         if you are removing a plain displayio ``Group``, use remove() instead.
         :param view: The view to remove from the hierarchy."""
         if view == view.window.active_responder:
@@ -175,7 +175,7 @@ class Responder(displayio.Group):
             self.window.set_needs_display()
 
     def become_active(self):
-        """Causes this view to become the active responder in the window."""
+        """Causes this view to become the active view in the window."""
         old_responder = self.window.active_responder
         old_responder.will_resign_active()
         self.window.active_responder = None
@@ -185,7 +185,7 @@ class Responder(displayio.Group):
         self.did_become_active()
 
     def resign_active(self):
-        """Causes this view to become the active responder in the window."""
+        """Causes this view to become the active view in the window."""
         if self is not self.window.active_responder:
             return
         self.will_resign_active()
@@ -201,30 +201,30 @@ class Responder(displayio.Group):
         pass
 
     def will_become_active(self):
-        """Called before a view becomes the active responder. Subclasses can override this method to configure
+        """Called before a view becomes the active view. Subclasses can override this method to configure
         their appearance in response to this event; they are guaranteed to become active in just a moment.
         Note that the window's active_responder will be None when this method is called."""
         pass
 
     def did_become_active(self):
-        """Called after a view becomes the active responder. Subclasses can override this method to perform
+        """Called after a view becomes the active view. Subclasses can override this method to perform
         any required post-activation tasks.
         """
         pass
 
     def will_resign_active(self):
-        """Called before a view resigns its status as the active responder. Subclasses can override this method
+        """Called before a view resigns its status as the active view. Subclasses can override this method
         to configure their appearance in response to this event; they are guaranteed to become inactive shortly.
         """
         pass
 
     def did_resign_active(self):
-        """Called after a view resigns its status as the active responder. Subclasses can override this to perform
+        """Called after a view resigns its status as the active view. Subclasses can override this to perform
         any cleanup tasks. Note that the window's active_responder will be None when this method is called."""
         pass
 
     def _contains(self, x, y):
-        """Internal method to to determine if a point is contained within this responder, mostly for touch UI.
+        """Internal method to to determine if a point is contained within this view, mostly for touch UI.
         :param x: the x value to test.
         :param y: the y value to test.
         :return: True if the point was inside this view, False if not."""
@@ -246,7 +246,7 @@ class Responder(displayio.Group):
 
     def handle_touch(self, touched, x, y):
         """When using a touch UI, call this method repeatedly to handle any touch events coming in.
-        If the user touched a responder, it will emit a TOUCH_BEGAN event that can propagate through the responder chain.
+        If the user touched a view, it will emit a TOUCH_BEGAN event that can propagate through the responder chain.
         Subclasses should not need to override this method.
         :param touched: a boolean indicating whether there is a finger on the display.
         :param x: the x coordinate of the touch
@@ -290,9 +290,9 @@ class Responder(displayio.Group):
         <Button object at 200063d0> which works, but it feels fragile. Open to a better way of doing this."""
         return hash(str(self))
 
-class Window(Responder):
+class Window(View):
     """A window is the topmost view in a chain of responders. All responders should live in a tree under the window.
-    In a touch environment, the window defers to Responder's ``handle_touch`` method to forward a touch to the correct responder.
+    In a touch environment, the window defers to View's ``handle_touch`` method to forward a touch to the correct view.
     In a cursor-based environment, the window can handle pushbutton events to move focus between responders.
     :param style: Style object defining the appearance of views in this window. Required, and recommend setting a font.
     :param x: The x position of the view.
@@ -300,7 +300,7 @@ class Window(Responder):
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
     :param max_size: Maximum number of groups that will be added.
-    :param highlight_active_responder: True to display a selection indicator on the active responder, useful for cursor-based
+    :param highlight_active_responder: True to display a selection indicator on the active view, useful for cursor-based
                                        interfaces. Pass in False if you are using a touchscreen.
     """
     def __init__(
@@ -328,8 +328,8 @@ class Window(Responder):
         self.focus_info = None
 
     def handle_event(self, event):
-        """Override of ``Responder``'s ``handle_event``. If you have provided focus targets, the ``Window`` will consume directional
-        button presses and move the active responder if possible. Note that subviews can also consume these button presses and prevent
+        """Override of ``View``'s ``handle_event``. If you have provided focus targets, the ``Window`` will consume directional
+        button presses and move the active view if possible. Note that subviews can also consume these button presses and prevent
         the window from moving focus (useful for, say, a slider that wants to steal left and right presses, but still pass along
         up and down presses).
         :param event: the event to be handled.
@@ -362,13 +362,13 @@ class Window(Responder):
             self.focus_info = {}
         self.focus_info[view] = (up, right, down, left)
 
-    def queue_event(self, responder, event):
+    def queue_event(self, view, event):
         """Queues an event to be handled after the current run loop task completes. This is useful to avoid exhausting the stack;
         for example, after recursively locating the source of a touch event, we can queue the tap event so that the user's action
         doesn't get called from the bottom of that stack of calls.
-        :param responder: the responder that should take first crack at handling the event.
+        :param view: the view that should take first crack at handling the event.
         :param event: the event to give it."""
-        self.event_queue.append((responder, event))
+        self.event_queue.append((view, event))
 
     def needs_display(self):
         """Checks whether the window needs display. Only really useful for that require manual refresh (like e-paper displays)."""
