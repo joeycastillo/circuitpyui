@@ -265,7 +265,8 @@ class View(displayio.Group):
                 if retval is not None:
                     return retval
         if self._contains(x, y):
-            self.window.queue_event(self, Event(Event.TOUCH_BEGAN, {"x": x, "y": y, "originator" : self}))
+            window = self if self.__class__ is Window else self.window
+            window.queue_event(self, Event(Event.TOUCH_BEGAN, {"x": x, "y": y, "originator" : self}))
             return self
         return None
 
