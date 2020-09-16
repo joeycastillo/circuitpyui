@@ -97,8 +97,6 @@ class Button(View):
         self.window.set_needs_display()
 
 class Cell(View):
-    SELECTION_STYLE_HIGHLIGHT = const(1)
-    SELECTION_STYLE_INDICATOR = const(2)
     """A ``Cell`` is a specialized view intended for use with a table or grid view. Comes with one label.
     You should not add additional groups to a cell; it has a max_size of 1. Eventually hope to add additional
     styles that support more labels or accessory views.
@@ -132,7 +130,7 @@ class Cell(View):
 
     def moved_to_window(self):
         self.label = Label(self.style.font, x=self.style.content_insets[3], y=self.height // 2, max_glyphs=len(self.text), color=self.style.foreground_color, text=self.text)
-        if self.selection_style == Cell.SELECTION_STYLE_HIGHLIGHT:
+        if self.selection_style == Table.SELECTION_STYLE_HIGHLIGHT:
             # quick hack, center previous/next buttons
             # TODO: add alignment to the Style class
             dims = self.label.bounding_box
@@ -144,11 +142,11 @@ class Cell(View):
     def will_become_active(self):
         if self.selection_style is None:
             return
-        elif self.selection_style == Cell.SELECTION_STYLE_HIGHLIGHT:
+        elif self.selection_style == Table.SELECTION_STYLE_HIGHLIGHT:
             self.background = Rect(0, 0, self.width, self.height, fill=self.style.active_background_color, outline=self.style.active_background_color)
             self.insert(0, self.background)
             self.label.color = self.style.active_foreground_color
-        elif self.selection_style == Cell.SELECTION_STYLE_INDICATOR:
+        elif self.selection_style == Table.SELECTION_STYLE_INDICATOR:
             self.background = Rect(16, 0, 8, self.height, fill=self.style.active_background_color, outline=self.style.active_background_color)
             self.append(self.background)
         self.window.set_needs_display()
@@ -158,11 +156,13 @@ class Cell(View):
             return
         if self.background is not None:
             self.remove(self.background)
-        if self.selection_style == Cell.SELECTION_STYLE_HIGHLIGHT:
+        if self.selection_style == Table.SELECTION_STYLE_HIGHLIGHT:
             self.label.color = self.style.foreground_color
         self.window.set_needs_display()
 
 class Table(View):
+    SELECTION_STYLE_HIGHLIGHT = const(1)
+    SELECTION_STYLE_INDICATOR = const(2)
     """A ``Table`` manages a group of ``Cell``s, displaying as many as will fit in the view's display area.
     If there is more than one screen's worth of content, an on-screen previous/next page button can be added
     (for touchscreen interfaces) or the table can respond to previous/next events (button-based interface).
@@ -174,7 +174,7 @@ class Table(View):
     :param style: a Style object defining the Table's appearance, or None to fall back to the Window's appearance.
     :param indent: Temporary API; cell indent from the left. Will eventually become a proper inset.
     :param cell_height: The height of each row in the table.
-    :param selection_style: Sets the appearance of cell that is the active view.
+    :param selection_style: Sets the appearance of cell that is the active view, or None for no indication.
     :param show_navigation_buttons: True to show previous/next buttons on screen. Useful for touch interfaces,
                                     or if the device does not have dedicated physical buttons for previous/next.
     """
@@ -187,7 +187,7 @@ class Table(View):
         height=0,
         style=None,
         cell_height=32,
-        selection_style=None,
+        selection_style=SELECTION_STYLE_HIGHLIGHT,
         show_navigation_buttons=False,
     ):
         max_cells = height // cell_height
@@ -231,7 +231,7 @@ class Table(View):
         if self._add_buttons:
             for i in range(0, 2):
                 cell = Cell(x=i * self.width // 2, y=self._cells_per_page * self.cell_height, width=self.width // 2, height=self.cell_height,
-                selection_style=Cell.SELECTION_STYLE_HIGHLIGHT if self.window.highlight_active_responder else None, text="Previous" if i is 0 else "Next")
+                selection_style=Table.SELECTION_STYLE_HIGHLIGHT if self.window.highlight_active_responder else None, text="Previous" if i is 0 else "Next")
                 self.add_subview(cell)
         if self[0] is not None:
             self[0].become_active()
@@ -240,11 +240,15 @@ class Table(View):
         if self._start_offset > 0:
             self._start_offset -= self._cells_per_page
             self.update_cells()
+            if self._add_buttons:
+                self[len(self) - 2].become_active()
 
     def next_page(self):
         if self._start_offset + self._cells_per_page < len(self.items):
             self._start_offset += self._cells_per_page
             self.update_cells()
+            if self._add_buttons:
+                self[len(self) - 1].become_active()
 
     def handle_event(self, event):
         if event.event_type == Event.TAPPED:
@@ -282,10 +286,13 @@ class Table(View):
                 elif event.event_type == Event.BUTTON_RIGHT and cell_index == len(self) - 2:
                     self[len(self) - 1].become_active()
                     return True
+                elif event.event_type == Event.BUTTON_UP and cell_index == len(self) - 1:
+                    self[cell_index - 2].become_active()
+                    return True
             if event.event_type == Event.BUTTON_UP and cell_index > 0:
                 self[cell_index - 1].become_active()
                 return True
-            elif event.event_type == Event.BUTTON_DOWN and cell_index < len(self) - 1:
+            elif event.event_type == Event.BUTTON_DOWN and cell_index < len(self) - 2:
                 self[cell_index + 1].become_active()
                 return True
         return super().handle_event(event)
