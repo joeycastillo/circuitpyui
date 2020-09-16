@@ -82,14 +82,14 @@ class Button(View):
                 palette[1] = self.style.background_color
                 self.image.pixel_shader = palette
 
-    def will_become_active(self):
+    def will_become_active(self, event=None):
         if not self.window.highlight_active_responder:
             return
         else:
             self._update_appearance(True)
         self.window.set_needs_display()
 
-    def will_resign_active(self):
+    def will_resign_active(self, event=None):
         if not self.window.highlight_active_responder:
             return
         else:
@@ -139,7 +139,7 @@ class Cell(View):
         self.selection_style = self.selection_style
         self.append(self.label)
 
-    def will_become_active(self):
+    def will_become_active(self, event=None):
         if self.selection_style is None:
             return
         elif self.selection_style == Table.SELECTION_STYLE_HIGHLIGHT:
@@ -151,7 +151,7 @@ class Cell(View):
             self.append(self.background)
         self.window.set_needs_display()
 
-    def will_resign_active(self):
+    def will_resign_active(self, event=None):
         if self.selection_style is None:
             return
         if self.background is not None:
@@ -250,7 +250,7 @@ class Table(View):
             if self._add_buttons:
                 self[len(self) - 1].become_active()
 
-    def handle_event(self, event):
+    def handle_event(self, event=None):
         if event.event_type == Event.TAPPED:
             originator = event.user_info["originator"]
             try:
@@ -296,6 +296,14 @@ class Table(View):
                 self[cell_index + 1].become_active()
                 return True
         return super().handle_event(event)
+
+    def did_become_active(self, event=None):
+        if event is not None:
+            if event.event_type == Event.BUTTON_UP:
+                # special case: if user is pressing 'up', highlight the last item in the list
+                self[len(self) - 1].become_active()
+                return
+        self[0].become_active()
 
 class Alert(View):
     """An ``Alert`` is a modal dialog that takes over the user's screen. It can have multiple buttons for response.
@@ -349,7 +357,7 @@ class Alert(View):
         if len(self.buttons):
             self.buttons[0].become_active()
 
-    def handle_event(self, event):
+    def handle_event(self, event=None):
         if event.event_type == Event.TAPPED:
             originator = event.user_info["originator"]
             if originator == self:

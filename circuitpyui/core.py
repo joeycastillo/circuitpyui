@@ -174,53 +174,56 @@ class View(displayio.Group):
         if self.window is not None:
             self.window.set_needs_display()
 
-    def become_active(self):
-        """Causes this view to become the active view in the window."""
+    def become_active(self, event=None):
+        """Causes this view to become the active view in the window.
+        :param event: Very optional. Contains an event if the change in state was in response to an event."""
         old_responder = self.window.active_responder
-        old_responder.will_resign_active()
+        old_responder.will_resign_active(event)
         self.window.active_responder = None
-        old_responder.did_resign_active()
-        self.will_become_active()
+        old_responder.did_resign_active(event)
+        self.will_become_active(event)
         self.window.active_responder = self
-        self.did_become_active()
+        self.did_become_active(event)
 
-    def resign_active(self):
+    def resign_active(self, event=None):
         """Causes this view to become the active view in the window."""
         if self is not self.window.active_responder:
             return
-        self.will_resign_active()
+        self.will_resign_active(event)
         self.window.active_responder = None
-        self.did_resign_active()
-        self.window.will_become_active()
+        self.did_resign_active(event)
+        self.window.will_become_active(event)
         self.window.active_responder = self.window
-        self.window.did_become_active()
+        self.window.did_become_active(event)
 
     def moved_to_window(self):
         """Called when the view moves to its window. Useful for setting up any styled objects, since you now
         have access to both the view's style and the window's style."""
         pass
 
-    def will_become_active(self):
+    def will_become_active(self, event=None):
         """Called before a view becomes the active view. Subclasses can override this method to configure
         their appearance in response to this event; they are guaranteed to become active in just a moment.
-        Note that the window's active_responder will be None when this method is called."""
+        Note that the window's active_responder will be None when this method is called.
+        :param event: Contains an event if the change in state was in response to an event; otherwise None."""
         pass
 
-    def did_become_active(self):
+    def did_become_active(self, event=None):
         """Called after a view becomes the active view. Subclasses can override this method to perform
         any required post-activation tasks.
-        """
+        :param event: Contains an event if the change in state was in response to an event; otherwise None."""
         pass
 
-    def will_resign_active(self):
+    def will_resign_active(self, event=None):
         """Called before a view resigns its status as the active view. Subclasses can override this method
         to configure their appearance in response to this event; they are guaranteed to become inactive shortly.
-        """
+        :param event: Contains an event if the change in state was in response to an event; otherwise None."""
         pass
 
-    def did_resign_active(self):
+    def did_resign_active(self, event=None):
         """Called after a view resigns its status as the active view. Subclasses can override this to perform
-        any cleanup tasks. Note that the window's active_responder will be None when this method is called."""
+        any cleanup tasks. Note that the window's active_responder will be None when this method is called.
+        :param event: Contains an event if the change in state was in response to an event; otherwise None."""
         pass
 
     def _contains(self, x, y):
@@ -334,21 +337,28 @@ class Window(View):
         up and down presses).
         :param event: the event to be handled.
         """
-        if self.focus_info is None or not event.event_type in [Event.BUTTON_UP, Event.BUTTON_RIGHT, Event.BUTTON_DOWN, Event.BUTTON_LEFT] or not self.active_responder in self.focus_info:
+        if self.focus_info is None or not event.event_type in [Event.BUTTON_UP, Event.BUTTON_RIGHT, Event.BUTTON_DOWN, Event.BUTTON_LEFT]:
+            return super().handle_event(event)
+
+        focus_source = self.active_responder
+        while focus_source is not None and not focus_source in self.focus_info:
+            focus_source = focus_source.next_responder
+        if focus_source is None:
             return super().handle_event(event)
 
         if event.event_type is Event.BUTTON_UP:
-            target = self.focus_info[self.active_responder][0]
+            focus_target = self.focus_info[focus_source][0]
         if event.event_type is Event.BUTTON_RIGHT:
-            target = self.focus_info[self.active_responder][1]
+            focus_target = self.focus_info[focus_source][1]
         if event.event_type is Event.BUTTON_DOWN:
-            target = self.focus_info[self.active_responder][2]
+            focus_target = self.focus_info[focus_source][2]
         if event.event_type is Event.BUTTON_LEFT:
-            target = self.focus_info[self.active_responder][3]
-        if target is not None:
-            target.become_active()
-            return True
-        return super().handle_event(event)
+            focus_target = self.focus_info[focus_source][3]
+
+        if focus_target is None:
+            return super().handle_event(event)
+        focus_target.become_active(event)
+        return True
 
     def set_focus_targets(self, view, *, up=None, right=None, down=None, left=None):
         """Tells the window which view should receive focus for a given directional button press.
