@@ -163,6 +163,8 @@ class Cell(View):
 class Table(View):
     SELECTION_STYLE_HIGHLIGHT = const(1)
     SELECTION_STYLE_INDICATOR = const(2)
+    PAGE_WILL_CHANGE = const(10000)
+    PAGE_DID_CHANGE = const(10001)
     """A ``Table`` manages a group of ``Cell``s, displaying as many as will fit in the view's display area.
     If there is more than one screen's worth of content, an on-screen previous/next page button can be added
     (for touchscreen interfaces) or the table can respond to previous/next events (button-based interface).
@@ -237,18 +239,22 @@ class Table(View):
             self[0].become_active()
 
     def previous_page(self):
+        self.handle_event(Event(Table.PAGE_WILL_CHANGE, {"offset" : -1}))
         if self._start_offset > 0:
             self._start_offset -= self._cells_per_page
             self.update_cells()
             if self._add_buttons:
                 self[len(self) - 2].become_active()
+        self.handle_event(Event(Table.PAGE_DID_CHANGE, {"offset" : -1}))
 
     def next_page(self):
+        self.handle_event(Event(Table.PAGE_WILL_CHANGE, {"offset" : 1}))
         if self._start_offset + self._cells_per_page < len(self.items):
             self._start_offset += self._cells_per_page
             self.update_cells()
             if self._add_buttons:
                 self[len(self) - 1].become_active()
+        self.handle_event(Event(Table.PAGE_DID_CHANGE, {"offset" : 1}))
 
     def handle_event(self, event=None):
         if event.event_type == Event.TAPPED:
