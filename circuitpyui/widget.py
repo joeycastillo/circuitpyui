@@ -359,7 +359,7 @@ class Alert(View):
             self.buttons.append(button)
             self.add_subview(button)
 
-    def did_become_active(self):
+    def did_become_active(self, event=None):
         if len(self.buttons):
             self.buttons[0].become_active()
 
