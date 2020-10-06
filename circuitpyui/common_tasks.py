@@ -54,6 +54,40 @@ try:
                 application.generate_event(Event.BUTTON_SELECT)
             self.needs_clear = True
 
+    class PyBadgeInput(Task):
+        """Converts PyGamer joystick and gamepad inputs to events."""
+        def __init__(self):
+            button_clock = DigitalInOut(board.BUTTON_CLOCK)
+            button_data = DigitalInOut(board.BUTTON_OUT)
+            button_latch = DigitalInOut(board.BUTTON_LATCH)
+            self.buttons = GamePadShift(button_clock, button_data, button_latch)
+            self.needs_clear = False
+
+        def run(self, application):
+            if self.needs_clear: # prevent a second press right after the first
+                self.buttons.get_pressed()
+                self.needs_clear = False
+            buttons = self.buttons.get_pressed()
+            if not buttons:
+                return
+            if buttons & 1<<7:
+                application.generate_event(Event.BUTTON_LEFT)
+            if buttons & 1<<4:
+                application.generate_event(Event.BUTTON_RIGHT)
+            if buttons & 1<<6:
+                application.generate_event(Event.BUTTON_UP)
+            if buttons & 1<<5:
+                application.generate_event(Event.BUTTON_DOWN)
+            if buttons & 1:
+                application.generate_event(Event.BUTTON_B)
+            if buttons & 1<<1:
+                application.generate_event(Event.BUTTON_A)
+            if buttons & 1<<2:
+                application.generate_event(Event.BUTTON_START)
+            if buttons & 1<<3:
+                application.generate_event(Event.BUTTON_SELECT)
+            self.needs_clear = True
+
 except ImportError:
     pass
 
