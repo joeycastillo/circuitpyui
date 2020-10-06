@@ -237,11 +237,12 @@ class View(displayio.Group):
         """Subclasses should override this to handle Events that are relevant to them.
         :param event: an Event class with a required event_type and an optional user_info dictionary.
         :return: True if the event was handled, False if not."""
+        window = self if self.__class__ is Window else self.window
         if event.event_type == Event.TOUCH_BEGAN or event.event_type is Event.BUTTON_A:
             self.handle_event(Event(Event.TAPPED, {"originator" : self}))
             return True
         if self.actions is not None and event.event_type in self.actions:
-            self.actions[event.event_type](self.window.application, event)
+            self.actions[event.event_type](window.application, event)
             return True
         elif self.next_responder is not None:
             return self.next_responder.handle_event(event)
