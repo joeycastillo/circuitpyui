@@ -17,6 +17,10 @@ class Event():
     BUTTON_PREV = BUTTON_SELECT
     BUTTON_NEXT = BUTTON_START
     BUTTON_LOCK = BUTTON_B
+    # keyboard events
+    KEY_PRESS = const(200)
+    KEY_LONG_PRESS = const(201)
+    KEY_RELEASE = const(202)
 
     def __init__(self, event_type, user_info):
         self.event_type = event_type

@@ -142,3 +142,23 @@ try:
 
 except ImportError:
     pass
+
+try:
+    import bbq10keyboard
+    class BBQ10KeyboardInput(Task):
+        def __init__(self, i2c, backlight_level=0.5):
+            self.kbd = bbq10keyboard.BBQ10Keyboard(i2c)
+            self.kbd.backlight = backlight_level
+
+        def run(self, application):
+            if self.kbd.key_count > 0:
+                key = self.kbd.key
+                event_type = Event.KEY_PRESS
+                if key[0] == bbq10keyboard.STATE_LONG_PRESS:
+                    event_type = Event.KEY_LONG_PRESS
+                elif key[0] == bbq10keyboard.STATE_RELEASE:
+                    event_type = Event.KEY_RELEASE
+                application.generate_event(event_type, {"key": key[1]})
+
+except ImportError:
+    pass
