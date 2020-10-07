@@ -14,6 +14,23 @@ class SleepTask(Task):
     def run(self, application):
         time.sleep(self.sleep_duration)
 
+class ButtonInput(Task):
+    """Turns button presses into Events.
+    :param buttons: an array of triples, (pin, level, event), specifying a DigitalInOut
+    instance for the pin connected to the button, the logic level of the button's active
+    state (True or False), and the event that should be triggered when the pin goes to
+    the desired state. For example: ```
+    button = DigitalInOut(board.D5)
+    button.switch_to_input(Pull.UP)
+    task = ButtonTask([(button, True, Event.BUTTON_SELECT)])```"""
+    def __init__(self, buttons):
+        self.buttons = buttons
+
+    def run(self, application):
+        for button in self.buttons:
+            if button[0].value == button[1]:
+                application.generate_event(button[2])
+
 try:
     from gamepadshift import GamePadShift
     class PyGamerInput(Task):
