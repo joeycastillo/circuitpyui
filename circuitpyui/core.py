@@ -1,4 +1,5 @@
 import displayio
+import terminalio
 from micropython import const
 
 class Event():
@@ -83,8 +84,7 @@ class Application():
         self.window.active_responder.handle_event(Event(event_type, user_info))
 
 class Style():
-    """An object describing the physical appearance of a View. Technically all params are optional (default values are substituted),
-    but if the style is applied to any object with a text label, the ``font`` property must be supplied.
+    """An object describing the physical appearance of a View.
     :param font: The font to use for any text labels.
     :param foreground_color: The color for any text or control outlines.
     :param background_color: The color for any fills or backgrounds.
@@ -98,22 +98,87 @@ class Style():
         self,
         *,
         font=None,
-        foreground_color=0xFFFFFF,
-        background_color=0x000000,
-        active_foreground_color=0x000000,
-        active_background_color=0xFFFFFF,
-        button_radius=10,
-        container_radius=5,
-        content_insets=(0, 0, 0, 0),
+        foreground_color=None,
+        background_color=None,
+        active_foreground_color=None,
+        active_background_color=None,
+        button_radius=None,
+        container_radius=None,
+        content_insets=None,
     ):
-        self.font = font
-        self.foreground_color = foreground_color
-        self.background_color = background_color
-        self.active_foreground_color = active_foreground_color
-        self.active_background_color = active_background_color
-        self.button_radius = button_radius
-        self.container_radius = container_radius
-        self.content_insets = content_insets
+        self._font = font
+        self._foreground_color = foreground_color
+        self._background_color = background_color
+        self._active_foreground_color = active_foreground_color
+        self._active_background_color = active_background_color
+        self._button_radius = button_radius
+        self._container_radius = container_radius
+        self._content_insets = content_insets
+        self._parent_style = None
+
+    @property
+    def font(self):
+        try:
+            return self._font if self._font is not None else self._parent_style.font
+        except AttriibuteError:
+            return terminalio.FONT
+
+    @property
+    def foreground_color(self):
+        try:
+            return self._foreground_color if self._foreground_color is not None else self._parent_style.foreground_color
+        except AttributeError:
+            return 0xFFFFFF
+
+    @property
+    def background_color(self):
+        try:
+            return self._background_color if self._background_color is not None else self._parent_style.background_color
+        except AttributeError:
+            return 0
+
+    @property
+    def active_foreground_color(self):
+        try:
+            return self._active_foreground_color if self._active_foreground_color is not None else self._parent_style.active_foreground_color
+        except AttributeError:
+            return 0
+
+    @property
+    def active_background_color(self):
+        try:
+            return self._active_background_color if self._active_background_color is not None else self._parent_style.active_background_color
+        except AttributeError:
+            return 0xFFFFFF
+
+    @property
+    def button_radius(self):
+        try:
+            return self._button_radius if self._button_radius is not None else self._parent_style.button_radius
+        except AttributeError:
+            return 10
+
+    @property
+    def container_radius(self):
+        try:
+            return self._container_radius if self._container_radius is not None else self._parent_style.container_radius
+        except AttributeError:
+            return 5
+
+    @property
+    def content_insets(self):
+        try:
+            return self._content_insets if self._content_insets is not None else self._parent_style.content_insets
+        except AttributeError:
+            return (0,0,0,0)
+
+    @property
+    def parent_style(self):
+        return self._parent_style
+
+    @parent_style.setter
+    def parent_style(self, new_style):
+        self._parent_style = new_style
 
 class View(displayio.Group):
     """Base class for ``circuitpyui`` classes. Has a position and a size.
@@ -161,6 +226,9 @@ class View(displayio.Group):
         :param view: The view to add to the hierarchy."""
         view.next_responder = self
         view.window = self if self.__class__ is Window else self.window
+        if view._style is not None:
+            # future thought: should this inherit the window's style, or the view's?
+            view._style.parent_style = view.window.style
         self.append(view)
         if view.window is not None:
             view.window.set_needs_display()

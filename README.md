@@ -62,4 +62,3 @@ This is very early days, and I'm open to suggestions or pull requests that fix b
 * Only a barebones set of Events exist at this time. What other kinds of events do we want to send through the responder chain?
 * the Table class was the first thing I put together and may need some refactoring. I also want to add cell styles with multiple labels.
 * the Style system is currently a bit barebones; should we have more colors for window backgrounds vs button backgrounds, set outline colors separately? Multiple fonts for bold or italic text?
-* In the same vein, it would be rad to have a view fall back to Window's style not if its own style was undefined, but rather for any attribute of its own style that is undefined (i.e. tell a button that it's red, but have it fall back to Window's font if that is not set).
