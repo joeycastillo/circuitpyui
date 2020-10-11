@@ -1,6 +1,6 @@
 # circuitpyui
 
-A simple displayio-based GUI framework for CircuitPython with minimal dependencies (just `adafruit_display_text` and `adafruit_display_shapes`).
+A simple displayio-based GUI framework for CircuitPython with minimal dependencies (just `adafruit_display_text` and `adafruit_display_shapes`). Currently targeting Cortex M4 class boards; this will not run on, say, a Feather M0 (not enough RAM).
 
 PLEASE NOTE: this is pre-pre-pre-alpha software; there are probably still bugs and the API for some stuff will likely change. please don't use this for anything really important.
 
