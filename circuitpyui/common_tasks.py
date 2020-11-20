@@ -123,7 +123,6 @@ try:
         def run(self, application):
             touch = self.ts.touch_point
             if touch is not None:
-                print(touch)
                 application.window.handle_touch(True, touch[0], touch[1])
 
 except ImportError:
