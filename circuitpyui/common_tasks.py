@@ -22,7 +22,7 @@ class ButtonInput(Task):
     the desired state. For example: ```
     button = DigitalInOut(board.D5)
     button.switch_to_input(Pull.UP)
-    task = ButtonTask([(button, True, Event.BUTTON_SELECT)])```"""
+    task = ButtonTask([(button, False, Event.BUTTON_SELECT)])```"""
     def __init__(self, buttons):
         self.buttons = buttons
 
