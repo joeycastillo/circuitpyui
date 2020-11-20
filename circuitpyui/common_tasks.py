@@ -31,6 +31,19 @@ class ButtonInput(Task):
             if button[0].value == button[1]:
                 application.generate_event(button[2])
 
+class EPDRefreshTask(Task):
+    """Automatically refreshes an e-paper display when the window requires an update."""
+    def __init__(self, display):
+        self.display = display
+        self.refreshed = False
+
+    def run(self, application):
+        if application.window.needs_display:
+            self.refreshed = False
+        if not self.refreshed and self.display.time_to_refresh == 0:
+            self.display.refresh()
+            self.refreshed = True
+
 try:
     from gamepadshift import GamePadShift
     class PyGamerInput(Task):
