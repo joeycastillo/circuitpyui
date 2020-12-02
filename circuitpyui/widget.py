@@ -304,6 +304,7 @@ class Table(View):
         return super().handle_event(event)
 
     def did_become_active(self, event=None):
+        """NOTE: Do not call this until after you have added items, or you will get an IndexError."""
         if event is not None:
             if event.event_type == Event.BUTTON_UP:
                 # special case: if user is pressing 'up', highlight the last item in the list
