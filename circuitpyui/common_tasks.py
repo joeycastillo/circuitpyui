@@ -41,8 +41,12 @@ class EPDRefreshTask(Task):
         if application.window.needs_display:
             self.refreshed = False
         if not self.refreshed and self.display.time_to_refresh == 0:
-            self.display.refresh()
-            self.refreshed = True
+            try:
+                self.display.refresh()
+                self.refreshed = True
+                application.window.set_needs_display(False)
+            except RuntimeError:
+                pass # try again on next run loop invocation
 
 try:
     from gamepadshift import GamePadShift
