@@ -456,10 +456,10 @@ class Window(View):
 
     def needs_display(self):
         """Checks whether the window needs display. Only really useful for that require manual refresh (like e-paper displays)."""
-        return self.dirty
+        return self.needs_display
 
     def set_needs_display(self, needs_display = True):
         """Sets or resets the value that will be returned from ``needs_display``. Automatically set whenever add_ or remove_subview
         is called; if you add any raw displayio Groups or change things like label text, you may need to set this manually. And then
         call ``set_needs_display(False)`` once you do refresh your display."""
-        self.dirty = needs_display
+        self.needs_display = needs_display
