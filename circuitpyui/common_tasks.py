@@ -2,7 +2,7 @@ from .core import Task, Event
 import time
 import board
 from analogio import AnalogIn
-from digitalio import DigitalInOut
+from digitalio import DigitalInOut, Direction
 
 class SleepTask(Task):
     """Very simple task that sleeps for a specified duration. Useful to pause between
@@ -151,6 +151,36 @@ try:
         def run(self, application):
             if len(self.ts.touches):
                 application.window.handle_touch(self.ts.touched, self.ts.touches[0]["x"], self.ts.touches[0]["y"])
+
+except ImportError:
+    pass
+
+try:
+    from adafruit_mcp230xx.mcp23008 import MCP23008
+
+    class MCP23008Input(Task):
+        """Turns button presses from an I2C GPIO expander into Events.
+        :param i2c: the I2C bus where the expander resides.
+        :param buttons: an array of triples, (pull, level, event), in order from pin 0 to
+        pin 7, specifying: (1) the direction of the pin (INPUT or OUTPUT), the pull (UP or
+        None), the input's active state (True or False), and the event that should be
+        triggered when the pin goes to the active state. For example:
+        ```task = MCP23008Input([(Pull.UP, False, Event.BUTTON_SELECT)])```
+        :param address: the expander's I2C address."""
+        def __init__(self, i2c, buttons, address=0x20):
+            self.mcp = MCP23008(i2c, address=address)
+            self.buttons = list()
+            for i in range(0, len(buttons)):
+                config = buttons[i]
+                pin = self.mcp.get_pin(i)
+                pin.direction = Direction.INPUT
+                pin.pull = config[0]
+                self.buttons.append((pin, config[1], config[2]))
+
+        def run(self, application):
+            for button in self.buttons:
+                if button[0].value == button[1]:
+                    application.generate_event(button[2])
 
 except ImportError:
     pass
