@@ -314,6 +314,10 @@ class View(displayio.Group):
             self.handle_event(Event(Event.TAPPED, {"originator" : self}))
             return True
         if self.actions is not None and event.event_type in self.actions:
+            if event.user_info is None:
+                event.user_info = dict()
+            event.user_info["originator"] = self
+            # TODO: originator is such a commonly needed thing, it should be a property of event, not stuffed in user_info.
             self.actions[event.event_type](window.application, event)
             return True
         elif self.next_responder is not None:
