@@ -199,6 +199,21 @@ try:
         def run(self, application):
             if self.kbd.key_count > 0:
                 key = self.kbd.key
+                # handle arrow keys separately
+                if key[1] in ['\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07', '\x11', '\x12', ]:
+                    if key[0] == bbq10keyboard.STATE_PRESS:
+                        if key[1] == '\x01':
+                            application.generate_event(Event.BUTTON_UP)
+                        if key[1] == '\x02':
+                            application.generate_event(Event.BUTTON_DOWN)
+                        if key[1] == '\x03':
+                            application.generate_event(Event.BUTTON_LEFT)
+                        if key[1] == '\x04':
+                            application.generate_event(Event.BUTTON_RIGHT)
+                        if key[1] == '\x05':
+                            application.generate_event(Event.BUTTON_A)
+                        # TODO: map four accessory buttons on keyboard FeatherWing to... some event
+                    return
                 event_type = Event.KEY_PRESS
                 if key[0] == bbq10keyboard.STATE_LONG_PRESS:
                     event_type = Event.KEY_LONG_PRESS
