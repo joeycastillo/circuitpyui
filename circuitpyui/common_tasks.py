@@ -160,6 +160,69 @@ except ImportError:
     pass
 
 try:
+    from touchio import TouchIn
+    class TouchMatrixInput(Task):
+        """Turns gestures on a PCB-based touch matrix into button events.
+        :param x_channels: An array of pins (i.e. board.D0) containing the columns of the matrix, from left to right.
+        :param y_channels: An array of pins containing the rows of the matrix, from top to bottom.
+        """
+        def __init__(self, x_channels, y_channels):
+            self.x_pads = list()
+            self.y_pads = list()
+            self.baseline = list()
+            self.start_point = None
+            self.end_point = None
+            self.can_tap = False
+            for pin in y_channels:
+                self.y_pads.append(TouchIn(pin))
+                self.baseline.append(list())
+            for i in range(0, len(x_channels)):
+                self.x_pads.append(TouchIn(x_channels[i]))
+                for j in range(0, len(self.baseline)):
+                    self.baseline[j].append(None)
+            for i in range(0, len(self.y_pads)):
+                for j in range(0, len(self.x_pads)):
+                    self.baseline[i][j] = self.y_pads[i].raw_value + self.x_pads[j].raw_value
+
+        def run(self, application):
+            x = None
+            y = None
+            peak = 0
+            for i in range(0, len(self.y_pads)):
+                for j in range(0, len(self.x_pads)):
+                    val = self.y_pads[i].raw_value + self.x_pads[j].raw_value - self.baseline[i][j]
+                    if val > peak:
+                        peak = val
+                        (x, y) = [j, i]
+            if peak > 250:
+                self.end_point = [x, y]
+                if self.start_point is None:
+                    self.start_point = [x, y]
+                    self.can_tap = True
+                dx = self.end_point[0] - self.start_point[0]
+                dy = self.end_point[1] - self.start_point[1]
+                if dx < -1:
+                    application.generate_event(Event.BUTTON_LEFT)
+                    self.can_tap = False
+                elif dx > 1:
+                    application.generate_event(Event.BUTTON_RIGHT)
+                    self.can_tap = False
+                elif dy < -1:
+                    application.generate_event(Event.BUTTON_UP)
+                    self.can_tap = False
+                elif dy > 1:
+                    application.generate_event(Event.BUTTON_DOWN)
+                    self.can_tap = False
+            elif peak < 100:
+                self.start_point = self.end_point = None
+                if self.can_tap and self.start_point == self.end_point:
+                    application.generate_event(Event.BUTTON_A)
+                    self.can_tap = False
+
+except ImportError:
+    pass
+
+try:
     from adafruit_mcp230xx.mcp23008 import MCP23008
 
     class MCP23008Input(Task):
@@ -185,6 +248,23 @@ try:
             for button in self.buttons:
                 if button[0].value == button[1]:
                     application.generate_event(button[2])
+
+except ImportError:
+    pass
+
+try:
+    from adafruit_stmpe610 import Adafruit_STMPE610_SPI
+
+    class STMPE610Input(Task):
+        """Passes touches from a touchscreen to the application's main window.
+        :param spi: the SPI bus where the expander resides.
+        :param cs: the pin (i.e. board.D6) responsible for touchscreen chip select"""
+        def __init__(self, bus, cs):
+            self.ts = Adafruit_STMPE610_SPI(spi, DigitalInOut(cs))
+
+        def run(self, application):
+            if not self.ts.buffer_empty:
+                print(self.ts.read_data())
 
 except ImportError:
     pass
