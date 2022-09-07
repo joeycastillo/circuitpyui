@@ -30,7 +30,7 @@ class Button(View):
         image=None,
         image_size=None,
     ):
-        super().__init__(x=x, y=y, width=width, height=height, style=style, max_size=2)
+        super().__init__(x=x, y=y, width=width, height=height, style=style)
         self.x = x
         self.y = y
         self.width = width
@@ -98,8 +98,7 @@ class Button(View):
 
 class Cell(View):
     """A ``Cell`` is a specialized view intended for use with a table or grid view. Comes with one label.
-    You should not add additional groups to a cell; it has a max_size of 1. Eventually hope to add additional
-    styles that support more labels or accessory views.
+    Eventually hope to add additional styles that support more labels or accessory views.
     :note: at this time a background is only drawn on the active row; other rows respect style.foreground_color,
            but style.background_color is ignored.
     :param font: The font for the label.
@@ -124,7 +123,7 @@ class Cell(View):
         selection_style=None,
         text="",
     ):
-        super().__init__(x=x, y=y, width=width, height=height, style=style, max_size=2)
+        super().__init__(x=x, y=y, width=width, height=height, style=style)
         self.text = text
         self.selection_style = selection_style
 
@@ -193,7 +192,7 @@ class Table(View):
         show_navigation_buttons=False,
     ):
         max_cells = height // cell_height
-        super().__init__(x=x, y=y, width=width, height=height, style=style, max_size=max_cells + (1 if show_navigation_buttons else 0))
+        super().__init__(x=x, y=y, width=width, height=height, style=style)
         self.cell_height = cell_height
         self.selection_style = selection_style
         self.show_navigation_buttons = show_navigation_buttons
@@ -335,7 +334,7 @@ class Alert(View):
         style=None,
         button_text=[]
     ):
-        super().__init__(x=0, y=0, width=0, height=0, style=style, max_size=2 + len(button_text))
+        super().__init__(x=0, y=0, width=0, height=0, style=style)
         self.text = text
         self.button_text = button_text
         self.alert_width = width

@@ -119,7 +119,7 @@ style = circuitpyui.Style(font=font)
 
 # create our window. This is the only displayio object we are going to show(); after this, we manage all
 # of our UI by managing the window's subviews.
-window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=style, max_size=2)
+window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=style)
 
 # instantiate the application...
 app = MyApplication(window)

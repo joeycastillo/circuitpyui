@@ -26,7 +26,7 @@ class MyApplication(circuitpyui.Application):
         self.availble_chores = ["Do Dishes", "Water Plants", "Sweep Floors", "Unload Dishwasher", "Clean Kitchen"]
         self.active_chores = []
 
-        self.main_view = circuitpyui.View(x=0, y=0, width=display.width, height=display.height, max_size=4)
+        self.main_view = circuitpyui.View(x=0, y=0, width=display.width, height=display.height)
         self.window.add_subview(self.main_view)
         title_label = adafruit_display_text.label.Label(font, x=0, y=text_height // 2, text="Chore Tracker", scale=2)
         self.main_view.append(title_label)
@@ -103,7 +103,7 @@ class MyApplication(circuitpyui.Application):
         self.buttons[0].become_active()
 
 style = circuitpyui.Style(font=font)
-window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=style, max_size=1)
+window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=style)
 app = MyApplication(window)
 
 app.run()

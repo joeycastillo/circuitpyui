@@ -190,7 +190,6 @@ class View(displayio.Group):
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
     :param style: Optional Style object. If no style is specified, we'll fall back to the style of the window.
-    :param max_size: Maximum number of groups and responders that will be added.
     """
     def __init__(
         self,
@@ -200,9 +199,8 @@ class View(displayio.Group):
         width=0,
         height=0,
         style=None,
-        max_size=5,
     ):
-        super().__init__(x=x, y=y, max_size=max_size)
+        super().__init__(x=x, y=y)
         self.x = x
         self.y = y
         self.width = width
@@ -380,7 +378,6 @@ class Window(View):
     :param y: The y position of the view.
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
-    :param max_size: Maximum number of groups that will be added.
     :param highlight_active_responder: True to display a selection indicator on the active view, useful for cursor-based
                                        interfaces. Pass in False if you are using a touchscreen.
     """
@@ -392,10 +389,9 @@ class Window(View):
         y=0,
         width=0,
         height=0,
-        max_size=5,
         highlight_active_responder=True,
     ):
-        super().__init__(x=x, y=y, width=width, height=height, style=style, max_size=max_size)
+        super().__init__(x=x, y=y, width=width, height=height, style=style)
         self.x = x
         self.y = y
         self.width = width

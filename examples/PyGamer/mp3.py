@@ -182,7 +182,7 @@ class PlayerApplication(circuitpyui.Application):
             self.active_track = None
 
 style = circuitpyui.Style(font=FONT, button_radius=5)
-window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=style, max_size=6)
+window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=style)
 time.sleep(1) # odd but if i omit this i sometimes get a hard crash, "Attempted heap allocation when MicroPython VM not running"
 app = PlayerApplication(window)
 display.show(window)

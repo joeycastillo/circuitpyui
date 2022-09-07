@@ -228,7 +228,7 @@ class PlayerApplication(circuitpyui.Application):
             self.now_playing_label.text = "Not Playing"
             self.active_track = None
 
-window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=STYLE, max_size=6)
+window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=STYLE)
 app = PlayerApplication(window)
 display.show(window)
 app.run()

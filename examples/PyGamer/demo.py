@@ -29,7 +29,7 @@ class DemoApplication(circuitpyui.Application):
         # menu is a subview that will contain all our buttons. it serves two purposes: one, it has a position,
         # and all its subviews will lay out from that origin. Two, we can set an action on it, and it will get
         # callbacks when an event bubbles up to it.
-        menu = circuitpyui.View(x=16, y=40, width=display.width, height=display.height, max_size=6)
+        menu = circuitpyui.View(x=16, y=40, width=display.width, height=display.height)
         self.window.add_subview(menu)
         sprite_sheet, palette = adafruit_imageload.load("/cp_sprite_sheet.bmp", bitmap=displayio.Bitmap, palette=displayio.Palette)
         buttons = []
@@ -88,7 +88,7 @@ class DemoApplication(circuitpyui.Application):
 # this demo also shows off some more advanced style! a sea foam green background, and purple for the selected item.
 # all views that do not have a style set will adopt the window's style.
 style = circuitpyui.Style(font=font, background_color=0xCE79, active_background_color=0xCE00A9, active_foreground_color=0xFFFFFF)
-window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=style, max_size=3)
+window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=style)
 
 app = DemoApplication(window)
 app.run()

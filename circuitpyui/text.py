@@ -27,13 +27,13 @@ class Label(displayio.Group):
         text=None,
         max_glyphs=None,
     ):
-        super().__init__(max_size=2)
+        super().__init__()
         if not max_glyphs and not text:
             raise RuntimeError("Please provide a max size, or initial text")
         if not max_glyphs:
             max_glyphs = len(text)
-        super().__init__(max_size=1, scale=1)
-        self.local_group = displayio.Group(max_size=max_glyphs + 1, scale=scale)
+        super().__init__(scale=1)
+        self.local_group = displayio.Group(scale=scale)
         self.append(self.local_group)
         self.x = x
         self.y = y

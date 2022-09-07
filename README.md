@@ -29,7 +29,7 @@ From there, all you have to do is instantiate your Application, hand it a Style 
 
 ```
 style = circuitpyui.Style(font=font)
-window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=style, max_size=3)
+window = circuitpyui.Window(x=0, y=0, width=display.width, height=display.height, style=style)
 app = MyApp(window)
 display.show(window)
 
