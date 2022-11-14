@@ -1,5 +1,4 @@
 import board
-import digitalio
 import displayio
 import terminalio
 import busio
@@ -10,7 +9,7 @@ from circuitpyui.common_tasks import ButtonInput, SleepTask, EPDRefreshTask
 from quick_il0373 import IL0373
 
 displayio.release_displays()
-spi = busio.SPI(board.SCK, board.MOSI)
+spi = busio.SPI(board.EPD_SCK, board.EPD_MOSI)
 display_bus = displayio.FourWire(spi, command=board.EPD_DC, chip_select=board.EPD_CS, reset=board.EPD_RESET, baudrate=1000000)
 display = IL0373(display_bus, width=296, height=128, rotation=270, seconds_per_frame=0.1, busy_pin=board.EPD_BUSY, black_bits_inverted=True, swap_rams=True)
 

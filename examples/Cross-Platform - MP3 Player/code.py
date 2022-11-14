@@ -7,7 +7,7 @@ import time
 
 import adafruit_bitmap_font.bitmap_font
 import adafruit_display_text.label
-from adafruit_progressbar import ProgressBar
+from adafruit_progressbar.ProgressBar import ProgressBar
 import adafruit_imageload
 import adafruit_sdcard
 import audioio
