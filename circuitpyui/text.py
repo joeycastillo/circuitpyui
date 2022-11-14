@@ -12,7 +12,7 @@ class Label(displayio.Group):
     :param height: The height of the label in pixels.
     :param color: The text color.
     :param text: Optional. Text for the label.
-    :param max_glyphs: Optional. Max glyphs for label. In case you plan to change the text later."""
+    """
     def __init__(
         self,
         x,
@@ -25,13 +25,7 @@ class Label(displayio.Group):
         line_spacing=1,
         scale=1,
         text=None,
-        max_glyphs=None,
     ):
-        super().__init__()
-        if not max_glyphs and not text:
-            raise RuntimeError("Please provide a max size, or initial text")
-        if not max_glyphs:
-            max_glyphs = len(text)
         super().__init__(scale=1)
         self.local_group = displayio.Group(scale=scale)
         self.append(self.local_group)

@@ -138,7 +138,7 @@ class PlayerApplication(circuitpyui.Application):
         # add non-interactive elements
         self.progress_bar = ProgressBar(0, display.height - BAR_HEIGHT - 5 - TEXT_HEIGHT, display.width, BAR_HEIGHT, bar_color=0xFFFFFF, outline_color=0xFFFFFF, stroke=1)
         self.window.append(self.progress_bar)
-        self.now_playing_label = adafruit_display_text.label.Label(FONT, x=0, y=display.height - 1 - TEXT_HEIGHT // 2, max_glyphs=64)
+        self.now_playing_label = adafruit_display_text.label.Label(FONT, x=0, y=display.height - 1 - TEXT_HEIGHT // 2)
         self.now_playing_label.text = "Not Playing"
         self.window.append(self.now_playing_label)
 

@@ -29,7 +29,7 @@ class MyApplication(circuitpyui.Application):
         self.window.add_subview(self.main_view)
         title_label = adafruit_display_text.label.Label(font, x=0, y=text_height // 2, text="Chore Tracker", scale=2)
         self.main_view.append(title_label)
-        self.chores_label = adafruit_display_text.label.Label(font, x=0, y=text_height * 2 + text_height // 2, max_glyphs=512)
+        self.chores_label = adafruit_display_text.label.Label(font, x=0, y=text_height * 2 + text_height // 2)
         self.main_view.append(self.chores_label)
 
         # virtual buttons!

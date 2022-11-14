@@ -12,7 +12,6 @@ class Button(View):
     :param height: The height of the view in pixels.
     :param style: a Style object defining the Button's appearance, or None to fall back to the Window's appearance.
     :param text: Optional text for a label. If you specify text, the bitmap parameter will be ignored.
-    :param max_glyphs: Optional max glyphs for label. In case you plan to change the text later.
     :param image: Optional, a TileGrid to display in the button. Will be ignored if text was also provided.
                   Ideally 1-bit, since we'll try to apply a two-color palette with the provided color.
     :param image_size: Temporary API, I don't think there's a way to query the TileGrid's size, so provide it here as a tuple.
@@ -26,7 +25,6 @@ class Button(View):
         height=0,
         style=None,
         text=None,
-        max_glyphs=None,
         image=None,
         image_size=None,
     ):
@@ -39,11 +37,10 @@ class Button(View):
         self.image = image
         self.image_size = image_size
         self.text = text
-        self.max_glyphs = max_glyphs
 
     def moved_to_window(self):
         if self.text is not None:
-            self.label = Label(self.style.font, x=0, y=0, text=self.text, max_glyphs=self.max_glyphs if self.max_glyphs is not None else len(self.text))
+            self.label = Label(self.style.font, x=0, y=0, text=self.text)
             self.image = None
             dims = self.label.bounding_box
             self.label.x = (self.width - dims[2]) // 2
@@ -107,7 +104,6 @@ class Cell(View):
     :param width: The width of the view in pixels.
     :param height: The height of the view in pixels.
     :param style: a Style object defining the Cell's appearance, or None to fall back to the Cell's appearance.
-    :param max_glyphs: Maximum number of glyphs in the label. Optional if ``text`` is provided.
     :param text: Text for the label.
     :param selection_style: Sets the appearance of the cell when it is the active view.
     """
@@ -119,7 +115,6 @@ class Cell(View):
         width=0,
         height=0,
         style=None,
-        max_glyphs=None,
         selection_style=None,
         text="",
     ):
@@ -128,7 +123,7 @@ class Cell(View):
         self.selection_style = selection_style
 
     def moved_to_window(self):
-        self.label = Label(self.style.font, x=self.style.content_insets[3], y=self.height // 2, max_glyphs=len(self.text), color=self.style.foreground_color, text=self.text)
+        self.label = Label(self.style.font, x=self.style.content_insets[3], y=self.height // 2, color=self.style.foreground_color, text=self.text)
         if self.selection_style == Table.SELECTION_STYLE_HIGHLIGHT:
             # quick hack, center previous/next buttons
             # TODO: add alignment to the Style class
