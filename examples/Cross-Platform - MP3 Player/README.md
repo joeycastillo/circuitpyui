@@ -6,12 +6,13 @@ To use, insert an SD card with several MP3 files at the root.
 
 ## Requirements:
 
+* adafruit_bitmap_font
 * adafruit_display_shapes
 * adafruit_display_text
 * adafruit_imageload
-* adafruit_bitmap_font
 * adafruit_progressbar
 * adafruit_sdcard
+* neopixel
 
 And for PyPortal:
 
